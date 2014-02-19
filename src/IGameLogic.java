@@ -5,7 +5,12 @@
  */
 public interface IGameLogic {
 
-    public enum Winner {PLAYER1, PLAYER2, TIE, NOT_FINISHED}
+    public enum Winner {
+        PLAYER1,
+        PLAYER2,
+        TIE,
+        NOT_FINISHED
+    }
 
     /**
      * Creates a new empty game board of the specified dimensions
@@ -27,6 +32,7 @@ public interface IGameLogic {
      * @param playerID The ID of the current player.
      */
     void insertCoin(int column, int playerID);
+
 
     /**
      * Calculates the next move  This is where you should

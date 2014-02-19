@@ -23,7 +23,7 @@ public class FourConnectGUI extends JComponent implements MouseListener {
     private Image part, redPion, bluePion, arrow, arrow_active, background;
     private Image border_left, border_right, border_top, border_bottom;
     private Image corner_left_top, corner_left_bottom, corner_right_top, corner_right_bottom;
-    private Image redWon, blueWon;
+    private Image redWon, blueWon, tie;
 
     /**
      * @param player1 The implementation of the game logic for player1, ir null for human
@@ -50,6 +50,7 @@ public class FourConnectGUI extends JComponent implements MouseListener {
 
         redWon = Toolkit.getDefaultToolkit().getImage("imgs/redwon.png");
         blueWon = Toolkit.getDefaultToolkit().getImage("imgs/bluewon.png");
+        tie = Toolkit.getDefaultToolkit().getImage("imgs/tie.gif");
 
         chosenColumn = -1;
         this.player1 = player1;
@@ -99,10 +100,17 @@ public class FourConnectGUI extends JComponent implements MouseListener {
         g.drawImage(corner_right_top, 100 + 100 * cols, 0, this);
         g.drawImage(corner_right_bottom, 100 + 100 * cols, rows * 100 + 100, this);
 
-        if (winner == IGameLogic.Winner.PLAYER1)
-            g.drawImage(blueWon, cols * 100 / 2 - 50, rows * 100 / 2 + 25, this);
-        else if (winner == IGameLogic.Winner.PLAYER2)
-            g.drawImage(redWon, cols * 100 / 2 - 50, rows * 100 / 2 + 25, this);
+        switch (winner){
+            case PLAYER1:
+                g.drawImage(blueWon, cols * 100 / 2 - 50, rows * 100 / 2 + 25, this);
+                break;
+            case PLAYER2:
+                g.drawImage(redWon, cols * 100 / 2 - 50, rows * 100 / 2 + 25, this);
+                break;
+            case TIE:
+                g.drawImage(tie, cols * 100 / 2 - 50, rows * 100 / 2 + 25, this);
+                break;
+        }
     }
 
     private int humanSelectedColumn(MouseEvent e) {
