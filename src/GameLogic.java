@@ -85,10 +85,10 @@ public class GameLogic implements IGameLogic {
         long c = bitboard & bitboard >> height2;
         long d = bitboard & bitboard >> 1;
 
-        return ((a & (a >> 2 * height))  |       // check diagonal   \
-                (b & (b >> 2 * height1)) |       // check horizontal -
-                (c & (c >> 2 * height2)) |       // check diagonal   /
-                (d & (d >> 2 * 1))) != 0;   // check vertical   |
+        return (a & a >> 2 * height  |  // check diagonal   \
+                b & b >> 2 * height1 |  // check horizontal -
+                c & c >> 2 * height2 |  // check diagonal   /
+                d & d >> 2 * 1) != 0;   // check vertical   |
     }
 
     public void insertCoin(int x, int player) {
