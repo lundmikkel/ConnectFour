@@ -19,7 +19,7 @@ public interface IGameLogic {
      *
      * @param columns  The number of columns in the game board
      * @param rows     The number of rows in the game board
-     * @param playerID 1 = blue (player1), 2 = red (player2)
+     * @param player 1 = blue (player1), 2 = red (player2)
      */
     void initializeGame(int columns, int rows, int player);
 
@@ -29,9 +29,9 @@ public interface IGameLogic {
      * the game board.
      *
      * @param column   The column where the coin is inserted.
-     * @param playerID The ID of the current player.
+     * @param player The ID of the current player.
      */
-    void insertCoin(int column, int playerID);
+    void insertCoin(int column, int player);
 
 
     /**
