@@ -1,4 +1,6 @@
 public class GameLogic implements IGameLogic {
+    // region Fields
+
     // Width of the board
     private int width;
     // Height of the board
@@ -24,6 +26,17 @@ public class GameLogic implements IGameLogic {
     // The number of moves made
     private int count;
 
+    /// endregion
+
+    // bitmask corresponds to board as follows in 7x6 case:
+    //  .  .  .  .  .  .  . TOP
+    //  5 12 19 26 33 40 47
+    //  4 11 18 25 32 39 46
+    //  3 10 17 24 31 38 45
+    //  2  9 16 23 30 37 44
+    //  1  8 15 22 29 36 43
+    //  0  7 14 21 28 35 42 BOTTOM
+
     public void initializeGame(int width, int height, int player) {
         // Check board size
         if (width * (height + 1) > MAX_SIZE)
@@ -36,9 +49,7 @@ public class GameLogic implements IGameLogic {
         height2 = this.height + 2;
 
         // Calculate column mask
-        columnMask = 1L;
-        for (int i = height - 1; i > 0; i--)
-            columnMask = 1L | (columnMask << 1);
+        columnMask = getColumnMask();
 
         size = width * height;
 
@@ -62,24 +73,6 @@ public class GameLogic implements IGameLogic {
         return (count == size) ? Winner.TIE : Winner.NOT_FINISHED;
     }
 
-    /**
-     * Check if a player has four connected.
-     * @param bitboard A bitboard representation of the player's coins on the board.
-     * @return True if the player has four connected, false otherwise.
-     */
-    final boolean hasFourConnected(long bitboard)
-    {
-        long a = bitboard & bitboard >> height;
-        long b = bitboard & bitboard >> height1;
-        long c = bitboard & bitboard >> height2;
-        long d = bitboard & bitboard >> 1;
-
-        return (a & a >> 2 * height  |  // check diagonal   \
-                b & b >> 2 * height1 |  // check horizontal -
-                c & c >> 2 * height2 |  // check diagonal   /
-                d & d >> 2 * 1) != 0;   // check vertical   |
-    }
-
     public void insertCoin(int column, int player) {
         // Update the current player
         this.player = player;
@@ -94,21 +87,6 @@ public class GameLogic implements IGameLogic {
         boards[player] |= 1L << i;
     }
 
-    private String toString(long bitboard) {
-        String s = "";
-
-        for (int y = 0; y < height; y++) {
-            long row = bitboard >> height - 1 - y;
-            for (int x = 0; x < width; x++) {
-                s += (row & 1L) != 0 ? "1" : "0";
-                row >>= height1;
-            }
-            s += '\n';
-        }
-
-        return s;
-    }
-
     public int decideNextMove() {
         // Pick a column at random
         int column = StdRandom.uniform(width);
@@ -119,6 +97,66 @@ public class GameLogic implements IGameLogic {
 
         return column;
     }
+
+    // region BitBoard operations
+
+    /**
+     * Check if a player has four connected.
+     * @param bitboard A bitboard representation of the player's coins on the board.
+     * @return True if the player has four connected, false otherwise.
+     */
+    private boolean hasFourConnected(long bitboard)
+    {
+        long a = bitboard & bitboard >> height;
+        long b = bitboard & bitboard >> height1;
+        long c = bitboard & bitboard >> height2;
+        long d = bitboard & bitboard >> 1;
+
+        return (a & a >> 2 * height  |  // check diagonal   \
+                b & b >> 2 * height1 |  // check horizontal -
+                c & c >> 2 * height2 |  // check diagonal   /
+                d & d >> 2 * 1) != 0;   // check vertical   |
+    }
+
+    private long fromString(String string) {
+        long bitboard = 0L;
+        String[] rows = string.split("\n");
+        for (int y = 0; y < height; y++) {
+            String[] cells = rows[y].split(" ");
+            for (int x = 0; x < width; x++) {
+                if (cells[x].equalsIgnoreCase("x")) {
+                    bitboard |= 1L << (height - 1 - y) + height1 * x;
+                }
+            }
+        }
+        return bitboard;
+    }
+
+    private String toString(long bitboard) {
+        String s = "";
+
+        for (int y = 0; y < height; y++) {
+            long row = bitboard >> height - 1 - y;
+            for (int x = 0; x < width; x++) {
+                s += (row & 1L) != 0 ? "X " : ". ";
+                row >>= height1;
+            }
+            s += '\n';
+        }
+
+        return s;
+    }
+
+    private long getColumnMask() {
+        long mask = 1L;
+
+        for (int i = height - 1; i > 0; i--)
+            mask = 1L | (mask << 1);
+
+        return mask;
+    }
+
+    // endregion
 
     private boolean isFull(int column) {
         return height <= Long.bitCount((boards[0] >> height1 * column) & columnMask);
