@@ -8,7 +8,10 @@ public class GameLogic implements IGameLogic {
     private int height1;
     private int height2;
 
-    private long columnMask;
+    private long all1;
+    private long col1;
+    private long bottom;
+    private long top;
 
     private int size;
     private static final int MAX_SIZE = 64;
@@ -48,10 +51,12 @@ public class GameLogic implements IGameLogic {
         height1 = this.height + 1;
         height2 = this.height + 2;
 
-        // Calculate column mask
-        columnMask = getColumnMask();
-
+        // Calculate constants
         size = width * height;
+        all1 = (1L << (height1 * width)) - 1L;
+        col1 = (1L << height1) - 1L;
+        bottom = all1 / col1;
+        top = bottom << height;
 
         //board = new int[width][height];
         boards[0] = boards[1] = boards[2] = 0L;
@@ -80,11 +85,9 @@ public class GameLogic implements IGameLogic {
         // Increment move counter
         count++;
 
-        long row = Long.bitCount((boards[0] >> height1 * column) & columnMask);
-
-        long i = row + height1 * column;
-        boards[0] |= 1L << i;
-        boards[player] |= 1L << i;
+        long bit = (((boards[0] >> (height1 * column)) & col1) + 1L) << (height1 * column);
+        boards[0] |= bit;
+        boards[player] |= bit;
     }
 
     public int decideNextMove() {
@@ -100,13 +103,18 @@ public class GameLogic implements IGameLogic {
 
     // region BitBoard operations
 
+    // Shifting operations:
+    // d c
+    // x b
+    //   a
+
     /**
      * Check if a player has four connected.
+     *
      * @param bitboard A bitboard representation of the player's coins on the board.
      * @return True if the player has four connected, false otherwise.
      */
-    private boolean hasFourConnected(long bitboard)
-    {
+    private boolean hasFourConnected(long bitboard) {
         long a = bitboard & bitboard >> height;
         long b = bitboard & bitboard >> height1;
         long c = bitboard & bitboard >> height2;
@@ -147,18 +155,9 @@ public class GameLogic implements IGameLogic {
         return s;
     }
 
-    private long getColumnMask() {
-        long mask = 1L;
-
-        for (int i = height - 1; i > 0; i--)
-            mask = 1L | (mask << 1);
-
-        return mask;
+    private boolean isFull(int column) {
+        return ((boards[0] >> height1 * column) + 1L & top) != 0;
     }
 
     // endregion
-
-    private boolean isFull(int column) {
-        return height <= Long.bitCount((boards[0] >> height1 * column) & columnMask);
-    }
 }
