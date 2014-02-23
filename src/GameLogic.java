@@ -155,6 +155,23 @@ public class GameLogic implements IGameLogic {
         return s;
     }
 
+    private String toString(long bitboard1, long bitboard2) {
+        String s = "";
+
+        for (int y = 0; y < height; y++) {
+            long row1 = bitboard1 >> height - 1 - y;
+            long row2 = bitboard2 >> height - 1 - y;
+            for (int x = 0; x < width; x++) {
+                s += " " + ((row1 & 1L) != 0 ? "X" : ((row2 & 1L) != 0 ? "O" : "."));
+                row1 >>= height1;
+                row2 >>= height1;
+            }
+            s += '\n';
+        }
+
+        return s;
+    }
+
     private boolean isFull(int column) {
         return ((boards[0] >> height1 * column) + 1L & top) != 0;
     }
