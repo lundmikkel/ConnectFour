@@ -126,6 +126,12 @@ public class GameLogic implements IGameLogic {
                 d & d >> 2 * 1) != 0;   // check vertical   |
     }
 
+    private boolean isFull(int column) {
+        return ((boards[0] >> height1 * column) + 1L & top) != 0;
+    }
+
+    // region Visualization
+
     private long fromString(String string) {
         long bitboard = 0L;
         String[] rows = string.split("\n");
@@ -172,9 +178,7 @@ public class GameLogic implements IGameLogic {
         return s;
     }
 
-    private boolean isFull(int column) {
-        return ((boards[0] >> height1 * column) + 1L & top) != 0;
-    }
+    // endregion
 
     // endregion
 }
