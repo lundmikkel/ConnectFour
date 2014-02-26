@@ -126,6 +126,29 @@ public class GameLogic implements IGameLogic {
                 d & d >> 2 * 1) != 0;   // check vertical   |
     }
 
+    /**
+     * Actions
+     * @return
+     */
+    private long[] nextMoves() {
+        long[] moves = new long[width];
+
+        long bitboard = boards[0];
+        for (int x = 0; x < width; x++) {
+            int shift = x * height1;
+            moves[x] = (bitboard + (1L << shift)) & (col1 << shift);
+        }
+
+        return moves;
+    }
+
+    private long next() {
+        long next = boards[0];
+        for (int x = 0; x < width; x++)
+            next += 1L << (x * height1);
+        return next;
+    }
+
     private boolean isFull(int column) {
         return ((boards[0] >> height1 * column) + 1L & top) != 0;
     }
