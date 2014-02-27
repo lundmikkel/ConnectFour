@@ -13,11 +13,10 @@ public class GameLogic implements IGameLogic {
     private long bottom;
     private long top;
 
-    private int size;
     private static final int MAX_SIZE = 64;
 
     // The current player's id
-    private int player;
+    private int me;
     private static final int EMPTY   = 0;
     private static final int PLAYER1 = 1;
     private static final int PLAYER2 = 2;
@@ -25,9 +24,6 @@ public class GameLogic implements IGameLogic {
     // The board
     //private int[][] board; // obsolete
     private long[] boards = new long[3];
-
-    // The number of moves made
-    private int count;
 
     /// endregion
 
@@ -52,7 +48,6 @@ public class GameLogic implements IGameLogic {
         height2 = this.height + 2;
 
         // Calculate constants
-        size = width * height;
         all1 = (1L << (height1 * width)) - 1L;
         col1 = (1L << height1) - 1L;
         bottom = all1 / col1;
@@ -61,7 +56,7 @@ public class GameLogic implements IGameLogic {
         //board = new int[width][height];
         boards[0] = boards[1] = boards[2] = 0L;
 
-        this.player = player;
+        me = player;
     }
 
     /**
@@ -70,21 +65,17 @@ public class GameLogic implements IGameLogic {
      */
     public Winner gameFinished() {
         // Check if four got connected in the last move
-        long bitboard = boards[player];
-        if (hasFourConnected(bitboard))
-            return player == PLAYER1 ? Winner.PLAYER1 : Winner.PLAYER2;
+        if (hasFourConnected(boards[PLAYER1]))
+            return Winner.PLAYER1;
+
+        if (hasFourConnected(boards[PLAYER2]))
+            return Winner.PLAYER2;
 
         // Chech if we have a tie due to a filled board
-        return (count == size) ? Winner.TIE : Winner.NOT_FINISHED;
+        return ((boards[0] | top) == all1) ? Winner.TIE : Winner.NOT_FINISHED;
     }
 
     public void insertCoin(int column, int player) {
-        // Update the current player
-        this.player = player;
-
-        // Increment move counter
-        count++;
-
         long bit = (((boards[0] >> (height1 * column)) & col1) + 1L) << (height1 * column);
         boards[0] |= bit;
         boards[player] |= bit;
@@ -124,29 +115,6 @@ public class GameLogic implements IGameLogic {
                 b & b >> 2 * height1 |  // check horizontal -
                 c & c >> 2 * height2 |  // check diagonal   /
                 d & d >> 2 * 1) != 0;   // check vertical   |
-    }
-
-    /**
-     * Actions
-     * @return
-     */
-    private long[] nextMoves() {
-        long[] moves = new long[width];
-
-        long bitboard = boards[0];
-        for (int x = 0; x < width; x++) {
-            int shift = x * height1;
-            moves[x] = (bitboard + (1L << shift)) & (col1 << shift);
-        }
-
-        return moves;
-    }
-
-    private long next() {
-        long next = boards[0];
-        for (int x = 0; x < width; x++)
-            next += 1L << (x * height1);
-        return next;
     }
 
     private boolean isFull(int column) {
@@ -203,5 +171,53 @@ public class GameLogic implements IGameLogic {
 
     // endregion
 
+    // endregion
+
+    // region MiniMax
+
+    private int player(long[] state) {
+        return (Long.bitCount(state[0]) % 2) + 1;
+    }
+
+    private long[] actions(long[] state) {
+        long[] actions = new long[width];
+
+        long bitboard = state[0];
+        for (int x = 0; x < width; x++) {
+            int shift = x * height1;
+            actions[x] = (bitboard + (1L << shift)) & (col1 << shift);
+        }
+
+        return actions;
+    }
+
+    private long[] result(long[] state, long action) {
+        int player = player(state);
+        state[0] |= action;
+        state[player] |= action;
+        return state;
+    }
+
+    private boolean terminalTest(long[] state) {
+        int player = player(state);
+
+        // player has 4 connect or board is full
+        return hasFourConnected(state[player]) || ((state[0] | top) == all1);
+        // TODO: is it enough to check one player?
+    }
+
+    private int utility(long[] state) {
+        // Check if player1 has won
+        if (hasFourConnected(state[1]))
+            return 1;
+
+        // Check if player2 has won
+        if (hasFourConnected(state[2]))
+            return -1;
+
+        // No winner
+        return 0;
+    }
+    
     // endregion
 }
