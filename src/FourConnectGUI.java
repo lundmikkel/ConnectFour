@@ -155,8 +155,9 @@ public class FourConnectGUI extends JComponent implements MouseListener {
                     }
                 } else {//computer
                     StdOut.print("Asked player1 for next move. ");
+                    Stopwatch sw = new Stopwatch();
                     col = player1.decideNextMove();
-                    StdOut.println("Done.");
+                    StdOut.println("Done in " + sw.elapsedTime() + " s");
                     if (updateBoard(col, 1)) {
                         if (player2 != null) player2.insertCoin(col, 1);
                         player1.insertCoin(col, 1);
@@ -179,8 +180,9 @@ public class FourConnectGUI extends JComponent implements MouseListener {
                     }
                 } else {//computer
                     StdOut.print("Asked player2 for next move. ");
+                    Stopwatch sw = new Stopwatch();
                     col = player2.decideNextMove();
-                    StdOut.println("Done.");
+                    StdOut.println("Done in " + sw.elapsedTime() + " s");
                     if (updateBoard(col, 2)) {
                         if (player1 != null) player1.insertCoin(col, 2);
                         player2.insertCoin(col, 2);
