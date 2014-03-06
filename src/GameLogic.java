@@ -61,7 +61,9 @@ public class GameLogic implements IGameLogic {
         bottom = all1 / col1;
         top = bottom << height;
 
-        currentState[0] = currentState[1] = currentState[2] = 0L;
+        currentState[COMMON] =
+        currentState[PLAYER1] =
+        currentState[PLAYER2] = 0L;
 
         utils  = new  int[width * height][width];
 
@@ -120,7 +122,7 @@ public class GameLogic implements IGameLogic {
     }
 
     private boolean isTie(long[] state) {
-        return (state[0] | top) == all1;
+        return (state[COMMON] | top) == all1;
     }
 
     private boolean isTie(long commonBoard) {
@@ -132,9 +134,9 @@ public class GameLogic implements IGameLogic {
     }
 
     public void insertCoin(int column, int player) {
-        long action = (currentState[0] + bottom) & (col1 << column * height1);
+        long action = (currentState[COMMON] + bottom) & (col1 << column * height1);
 
-        currentState[0] |= action;
+        currentState[COMMON] |= action;
         currentState[player] |= action;
     }
 
