@@ -268,19 +268,18 @@ public class GameLogic implements IGameLogic {
 
         // Set v to lowest possible value
         int v = Integer.MIN_VALUE;
-        // Get the possible actions for the state
-        long[] actions = actions(commonBoard);
-        // TODO
-        // Get a prioritized list of moves to explore
-        //int[] indexOrder = getIndexOrder(state, actions);
-
         // Reset all utils for the current depth
         for (int i = 0; i < width; i++)
             utils[depth][i] = Integer.MIN_VALUE;
 
+        // Get the possible actions for the state
+        long[] actions = actions(commonBoard);
+        // Get a prioritized list of moves to explore
+        int[] actionPriority = actionPriority(maxBoard, minBoard, commonBoard, actions);
+
         // Iterate all moves
-        for (int x = 0; x < width; x++) {
-            //int x = indexOrder[i];
+        for (int i = 0; i < width; i++) {
+            int x = actionPriority[i];
             long action = actions[x];
 
             // Check if valid move
@@ -321,18 +320,17 @@ public class GameLogic implements IGameLogic {
 
         // Set v to lowest possible value
         int v = Integer.MAX_VALUE;
-        // Get the possible actions for the state
-        long[] actions = actions(commonBoard);
-        // TODO
-        // Get a prioritized list of moves to explore
-        //int[] indexOrder = getIndexOrder(state, actions);
-
         // Reset all utils for the current depth
         for (int i = 0; i < width; i++)
             utils[depth][i] = Integer.MAX_VALUE;
 
-        for (int x = 0; x < width; x++) {
-            //int x = indexOrder[x];
+        // Get the possible actions for the state
+        long[] actions = actions(commonBoard);
+        // Get a prioritized list of moves to explore
+        int[] actionPriority = actionPriority(minBoard, maxBoard, commonBoard, actions);
+
+        for (int i = 0; i < width; i++) {
+            int x = actionPriority[i];
             long action = actions[x];
 
             // Check if valid move
@@ -371,11 +369,9 @@ public class GameLogic implements IGameLogic {
         return 0;
     }
 
-    private int[] getIndexOrder(long[] state, long[] actions) {
-        int[] indexOrder = new int[width];
+    private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
+        int[] actionPriority = new int[width];
         int[] heuristics = new int[width];
-        int player = player(state);
-        int opponent = 3 - player;
 
         for (int x = 0; x < width; x++) {
             long action = actions[x];
@@ -384,9 +380,10 @@ public class GameLogic implements IGameLogic {
             if (!isValid(action))
                 continue;
 
-            heuristics[x] = h(state[player], state[opponent], action, x);
+            heuristics[x] = h(thisBoard, thatBoard, action, x);
         }
 
+        // Selection sort - kind-of
         for (int i = 0; i < width; i++) {
             int maxI = 0;
             int max = -1;
@@ -397,11 +394,11 @@ public class GameLogic implements IGameLogic {
                 }
             }
 
-            heuristics[maxI] = -1;
-            indexOrder[i] = maxI;
+            heuristics[maxI] = Integer.MIN_VALUE;
+            actionPriority[i] = maxI;
         }
 
-        return indexOrder;
+        return actionPriority;
     }
 
     private int h(long bitboard1, long bitboard2, long action, int column) {
@@ -423,10 +420,6 @@ public class GameLogic implements IGameLogic {
                 (hPairs(nextBitboard1) << 0) +
                 // Check column
                 hColumn(column);
-    }
-
-    private int player(long[] state) {
-        return Long.bitCount(state[0]) % 2 + 1;
     }
 
     private long[] actions(long commonBoard) {
