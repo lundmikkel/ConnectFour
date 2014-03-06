@@ -141,7 +141,7 @@ public class GameLogic implements IGameLogic {
 
         int v = maxValue(currentState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
 
-        StdOut.println(); for (int i = 0; i < width; i++) StdOut.println(i + ": " + utils[0][i]);
+        //StdOut.println(); for (int i = 0; i < width; i++) StdOut.println(i + ": " + utils[0][i]);
 
         for (int x = 0; x < width; x++)
             if (utils[0][x] == v)
