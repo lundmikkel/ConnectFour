@@ -12,6 +12,10 @@ import java.awt.event.*;
 public class FourConnectGUI extends JComponent implements MouseListener {
     static final long serialVersionUID = 1234567890;
 
+    private boolean debug = true;
+    private Stopwatch sw;
+    private int counter = -1;
+
     private int chosenColumn;    // The value of the last column chosen by the human player.
     private IGameLogic player1;
     private IGameLogic player2;
@@ -143,6 +147,11 @@ public class FourConnectGUI extends JComponent implements MouseListener {
      * player is prompted to make a move, which is done in a new thread.
      */
     public void mouseClicked(MouseEvent e) {
+        if (debug && sw == null)
+            sw = new Stopwatch();
+        if (debug)
+            counter++;
+
         if (winner == IGameLogic.Winner.NOT_FINISHED) {
             int col = -1;
             if (playerTurn == 1) {
@@ -196,8 +205,15 @@ public class FourConnectGUI extends JComponent implements MouseListener {
                     }
                 }
             }
+            mouseClicked(e);
         }
         repaint();
+
+        if (debug && sw != null) {
+            StdOut.println("Total time played: " + sw.elapsedTime());
+            StdOut.println("Total moves: " + counter);
+            sw = null;
+        }
     }
 
     // Not used methods from the interface of MouseListener 
