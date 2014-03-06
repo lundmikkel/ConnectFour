@@ -439,49 +439,10 @@ public class GameLogic implements IGameLogic {
         return actions;
     }
 
-    private long[] actions(long[] state) {
-        long[] actions = new long[width];
-        long spots = state[0] + bottom;
-
-        for (int x = 0; x < width; x++)
-            actions[x] = spots & col1 << x * height1;
-
-        return actions;
-    }
-
-    private long[] result(long[] state, long action) {
-        int player = player(state);
-        state[0] |= action;
-        state[player] |= action;
-        return state;
-    }
-
     private boolean terminalTest(long maxBoard, long minBoard, long commonBoard) {
         return hasFourConnected(maxBoard) ||
                hasFourConnected(minBoard) ||
                isTie(commonBoard);
-    }
-
-    private boolean terminalTest(long[] state) {
-        return hasFourConnected(state[PLAYER1]) ||
-               hasFourConnected(state[PLAYER2]) ||
-               isTie(state);
-    }
-
-    private int utility(long[] state) {
-        // Check if player1 has won
-        if (hasFourConnected(state[PLAYER1]))
-            return MAX == PLAYER1 ? WIN : LOSS;
-
-        // Check if player2 has won
-        if (hasFourConnected(state[PLAYER2]))
-            return MAX == PLAYER2 ? WIN : LOSS;
-
-        // No winner
-        if (isTie(state))
-            return TIE;
-
-        throw new RuntimeException();
     }
 
     private int utility(long maxBoard, long minBoard, long commonBoard) {
