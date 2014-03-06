@@ -366,11 +366,6 @@ public class GameLogic implements IGameLogic {
         return v;
     }
 
-    private int eval(long[] state) {
-        // TODO: Make this work properly
-        return 0;
-    }
-
     private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
         int[] actionPriority = new int[width];
         int[] heuristics = new int[width];
@@ -403,33 +398,12 @@ public class GameLogic implements IGameLogic {
         return actionPriority;
     }
 
-    private int h(long thisBoard, long thatBoard, long action, int column) {
-        long thisNextBoard = thisBoard | action;
-        long thatNextBoard = thatBoard | action;
-
-        return
-                // Check for four connected
-                (hQuad(thisNextBoard) << 10) +
-                // Check for blocking four connected
-                (hQuad(thatNextBoard) << 8) +
-                // Check for free-ended trebles
-                (hTreblesFreeEnded(thisNextBoard, thatBoard) << 6) +
-                // Check for trebles
-                (hTrebles(thisNextBoard) << 4) +
-                // Check for free-ended pairs
-                (hPairsFreeEnded(thisNextBoard, thatBoard) << 2) +
-                // Check for pairs
-                (hPairs(thisNextBoard) << 0) +
-                // Check column
-                hColumn(column);
-    }
-
     private long[] actions(long commonBoard) {
         long[] actions = new long[width];
         commonBoard += bottom;
 
         for (int x = 0; x < width; x++)
-            actions[x] = commonBoard & col1 << x * height1;
+            actions[x] = commonBoard & (col1 << (x * height1));
 
         return actions;
     }
@@ -441,24 +415,36 @@ public class GameLogic implements IGameLogic {
     }
 
     private int utility(long maxBoard, long minBoard, long commonBoard) {
-        // Check if player1 has won
-        if (hasFourConnected(maxBoard))
-            return WIN;
-
-        // Check if player2 has won
-        if (hasFourConnected(minBoard))
-            return LOSS;
-
-        // No winner
-        if (isTie(commonBoard))
-            return TIE;
-
-        throw new RuntimeException();
+        if (hasFourConnected(maxBoard)) return WIN;
+        if (hasFourConnected(minBoard)) return LOSS;
+        if (isTie(commonBoard)) return TIE;
+        throw new RuntimeException("Utility function was called for a non-terminal state");
     }
 
     // endregion
 
     // region Heuristics
+
+    private int h(long thisBoard, long thatBoard, long action, int column) {
+        long thisNextBoard = thisBoard | action;
+        long thatNextBoard = thatBoard | action;
+
+        return
+                // Check for four connected
+                (hQuad(thisNextBoard) << 10) +
+                        // Check for blocking four connected
+                        (hQuad(thatNextBoard) << 8) +
+                        // Check for free-ended trebles
+                        (hTreblesFreeEnded(thisNextBoard, thatBoard) << 6) +
+                        // Check for trebles
+                        (hTrebles(thisNextBoard) << 4) +
+                        // Check for free-ended pairs
+                        (hPairsFreeEnded(thisNextBoard, thatBoard) << 2) +
+                        // Check for pairs
+                        (hPairs(thisNextBoard) << 0) +
+                        // Check column
+                        hColumn(column);
+    }
 
     private int hColumn(int column) {
         return column > width / 2 ? width - column - 1 : column;
