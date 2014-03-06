@@ -401,23 +401,23 @@ public class GameLogic implements IGameLogic {
         return actionPriority;
     }
 
-    private int h(long bitboard1, long bitboard2, long action, int column) {
-        long nextBitboard1 = bitboard1 | action;
-        long nextBitboard2 = bitboard2 | action;
+    private int h(long thisBoard, long thatBoard, long action, int column) {
+        long thisNextBoard = thisBoard | action;
+        long thatNextBoard = thatBoard | action;
 
         return
                 // Check for four connected
-                (hQuad(nextBitboard1) << 10) +
+                (hQuad(thisNextBoard) << 10) +
                 // Check for blocking four connected
-                (hQuad(nextBitboard2) << 8) +
+                (hQuad(thatNextBoard) << 8) +
                 // Check for free-ended trebles
-                (hTreblesFreeEnded(nextBitboard1, bitboard2) << 6) +
+                (hTreblesFreeEnded(thisNextBoard, thatBoard) << 6) +
                 // Check for trebles
-                (hTrebles(nextBitboard1) << 4) +
+                (hTrebles(thisNextBoard) << 4) +
                 // Check for free-ended pairs
-                (hPairsFreeEnded(nextBitboard1, bitboard2) << 2) +
+                (hPairsFreeEnded(thisNextBoard, thatBoard) << 2) +
                 // Check for pairs
-                (hPairs(nextBitboard1) << 0) +
+                (hPairs(thisNextBoard) << 0) +
                 // Check column
                 hColumn(column);
     }
