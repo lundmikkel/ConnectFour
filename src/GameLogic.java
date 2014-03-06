@@ -1,5 +1,3 @@
-import java.util.Arrays;
-
 public class GameLogic implements IGameLogic {
     // region Fields
 
@@ -18,7 +16,9 @@ public class GameLogic implements IGameLogic {
     private static final int MAX_SIZE = 64;
 
     // The current player's id
-    private int me;
+    private int COMMON = 0;
+    private int MAX;
+    private int MIN;
     private static final int PLAYER1 = 1;
     private static final int PLAYER2 = 2;
 
@@ -30,7 +30,6 @@ public class GameLogic implements IGameLogic {
     // The board
     private long[] currentState = new long[3];
 
-    private long[][] states;
     private int[][] utils;
     private short[] frequency;
 
@@ -64,12 +63,12 @@ public class GameLogic implements IGameLogic {
 
         currentState[0] = currentState[1] = currentState[2] = 0L;
 
-        states = new long[width * height][3];
         utils  = new  int[width * height][width];
 
         frequency = getFrequency();
 
-        me = player;
+        MAX = player;
+        MIN = 3 - player;
 
         //
         //long bitboard1 = 1L << 7;
@@ -124,6 +123,10 @@ public class GameLogic implements IGameLogic {
         return (state[0] | top) == all1;
     }
 
+    private boolean isTie(long commonBoard) {
+        return (commonBoard | top) == all1;
+    }
+
     private boolean isValid(long action) {
         return (action & top) == 0;
     }
@@ -139,7 +142,11 @@ public class GameLogic implements IGameLogic {
         // TODO: Apply iterative deepening
         int cutoff = width * height;
 
-        int v = maxValue(currentState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+        long maxBoard = currentState[MAX];
+        long minBoard = currentState[MIN];
+        long commonBoard = currentState[COMMON];
+
+        int v = maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
 
         //StdOut.println(); for (int i = 0; i < width; i++) StdOut.println(i + ": " + utils[0][i]);
 
@@ -254,15 +261,15 @@ public class GameLogic implements IGameLogic {
 
     // region MiniMax
 
-    private int maxValue(long[] state, int alpha, int beta, int depth, int cutoff) {
+    private int maxValue(long maxBoard, long minBoard, long commonBoard, int alpha, int beta, int depth, int cutoff) {
         // Check if we should end the search
-        if (terminalTest(state))
-            return utility(state);
+        if (terminalTest(maxBoard, minBoard, commonBoard))
+            return utility(maxBoard, minBoard, commonBoard);
 
         // Set v to lowest possible value
         int v = Integer.MIN_VALUE;
         // Get the possible actions for the state
-        long[] actions = actions(state);
+        long[] actions = actions(commonBoard);
         // TODO
         // Get a prioritized list of moves to explore
         //int[] indexOrder = getIndexOrder(state, actions);
@@ -280,10 +287,16 @@ public class GameLogic implements IGameLogic {
             if (!isValid(action))
                 continue;
 
-            long[] newState = result(Arrays.copyOf(state, 3), action);
-
             // Get min value
-            int min = utils[depth][x] = minValue(newState, alpha, beta, depth + 1, cutoff);
+            int min = utils[depth][x] = minValue(
+                    maxBoard | action,
+                    minBoard,
+                    commonBoard | action,
+                    alpha,
+                    beta,
+                    depth + 1,
+                    cutoff
+            );
 
             // Check if min is higher
             if (min > v) {
@@ -301,15 +314,15 @@ public class GameLogic implements IGameLogic {
         return v;
     }
 
-    private int minValue(long[] state, int alpha, int beta, int depth, int cutoff) {
+    private int minValue(long maxBoard, long minBoard, long commonBoard, int alpha, int beta, int depth, int cutoff) {
         // Return if we are in a terminal state
-        if (terminalTest(state))
-            return utility(state);
+        if (terminalTest(maxBoard, minBoard, commonBoard))
+            return utility(maxBoard, minBoard, commonBoard);
 
         // Set v to lowest possible value
         int v = Integer.MAX_VALUE;
         // Get the possible actions for the state
-        long[] actions = actions(state);
+        long[] actions = actions(commonBoard);
         // TODO
         // Get a prioritized list of moves to explore
         //int[] indexOrder = getIndexOrder(state, actions);
@@ -326,10 +339,16 @@ public class GameLogic implements IGameLogic {
             if (!isValid(action))
                 continue;
 
-            long[] newState = result(Arrays.copyOf(state, 3), action);
-
             // Get min value
-            int max = utils[depth][x] = maxValue(newState, alpha, beta, depth + 1, cutoff);
+            int max = utils[depth][x] = maxValue(
+                    maxBoard,
+                    minBoard | action,
+                    commonBoard | action,
+                    alpha,
+                    beta,
+                    depth + 1,
+                    cutoff
+            );
 
             // Check if min is higher
             if (max < v) {
@@ -410,6 +429,16 @@ public class GameLogic implements IGameLogic {
         return Long.bitCount(state[0]) % 2 + 1;
     }
 
+    private long[] actions(long commonBoard) {
+        long[] actions = new long[width];
+        commonBoard += bottom;
+
+        for (int x = 0; x < width; x++)
+            actions[x] = commonBoard & col1 << x * height1;
+
+        return actions;
+    }
+
     private long[] actions(long[] state) {
         long[] actions = new long[width];
         long spots = state[0] + bottom;
@@ -427,6 +456,12 @@ public class GameLogic implements IGameLogic {
         return state;
     }
 
+    private boolean terminalTest(long maxBoard, long minBoard, long commonBoard) {
+        return hasFourConnected(maxBoard) ||
+               hasFourConnected(minBoard) ||
+               isTie(commonBoard);
+    }
+
     private boolean terminalTest(long[] state) {
         return hasFourConnected(state[PLAYER1]) ||
                hasFourConnected(state[PLAYER2]) ||
@@ -436,14 +471,30 @@ public class GameLogic implements IGameLogic {
     private int utility(long[] state) {
         // Check if player1 has won
         if (hasFourConnected(state[PLAYER1]))
-            return me == PLAYER1 ? WIN : LOSS;
+            return MAX == PLAYER1 ? WIN : LOSS;
 
         // Check if player2 has won
         if (hasFourConnected(state[PLAYER2]))
-            return me == PLAYER2 ? WIN : LOSS;
+            return MAX == PLAYER2 ? WIN : LOSS;
 
         // No winner
         if (isTie(state))
+            return TIE;
+
+        throw new RuntimeException();
+    }
+
+    private int utility(long maxBoard, long minBoard, long commonBoard) {
+        // Check if player1 has won
+        if (hasFourConnected(maxBoard))
+            return WIN;
+
+        // Check if player2 has won
+        if (hasFourConnected(minBoard))
+            return LOSS;
+
+        // No winner
+        if (isTie(commonBoard))
             return TIE;
 
         throw new RuntimeException();
