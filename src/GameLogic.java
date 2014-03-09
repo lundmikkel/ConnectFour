@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 public class GameLogic implements IGameLogic {
     // region Fields
@@ -147,15 +148,24 @@ public class GameLogic implements IGameLogic {
 
     public int decideNextMove() {
         // TODO: Apply iterative deepening
-        int cutoff = 2*width + 3;
+        int cutoff = 10;
 
+        int bestX;
+        long stop = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
+        Stopwatch sw = new Stopwatch();
         long maxBoard = currentState[MAX];
         long minBoard = currentState[MIN];
         long commonBoard = currentState[COMMON];
+        int maxCutoff = width * height - Long.bitCount(commonBoard);
 
-        maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+        do {
+            maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+            bestX = maxX;
+            StdOut.println("Found new best x " + bestX + " with cutoff " + cutoff + " at time " + sw.elapsedTime());
+            cutoff++;
+        } while(cutoff <= maxCutoff && stop > System.nanoTime());
 
-        return maxX;
+        return bestX;
     }
 
 
