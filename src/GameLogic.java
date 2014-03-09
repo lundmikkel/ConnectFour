@@ -30,8 +30,8 @@ public class GameLogic implements IGameLogic {
     // The board
     private long[] currentState = new long[3];
 
-    private int[][] utils;
     private short[] frequency;
+    private int maxX;
 
     /// endregion
 
@@ -64,8 +64,6 @@ public class GameLogic implements IGameLogic {
         currentState[COMMON] =
         currentState[PLAYER1] =
         currentState[PLAYER2] = 0L;
-
-        utils  = new  int[width * height][width];
 
         frequency = getFrequency();
 
@@ -148,15 +146,17 @@ public class GameLogic implements IGameLogic {
         long minBoard = currentState[MIN];
         long commonBoard = currentState[COMMON];
 
-        int v = maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+        maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+
+        return maxX;
 
         //StdOut.println(); for (int i = 0; i < width; i++) StdOut.println(i + ": " + utils[0][i]);
 
-        for (int x = 0; x < width; x++)
-            if (utils[0][x] == v)
-                return x;
-
-        throw new RuntimeException();
+        //for (int x = 0; x < width; x++)
+        //    if (utils[0][x] == v)
+        //        return x;
+//
+        //throw new RuntimeException();
 
         // TODO
         //int maxX = 0;
@@ -270,9 +270,6 @@ public class GameLogic implements IGameLogic {
 
         // Set v to lowest possible value
         int v = Integer.MIN_VALUE;
-        // Reset all utils for the current depth
-        for (int i = 0; i < width; i++)
-            utils[depth][i] = Integer.MIN_VALUE;
 
         // Get the possible actions for the state
         long[] actions = actions(commonBoard);
@@ -280,7 +277,7 @@ public class GameLogic implements IGameLogic {
         int[] actionPriority = actionPriority(maxBoard, minBoard, commonBoard, actions);
 
         // Iterate all moves
-        for (int i = 0; i < width; i++) {
+        for (int i = 0; i < actionPriority.length; i++) {
             int x = actionPriority[i];
             long action = actions[x];
 
@@ -289,7 +286,7 @@ public class GameLogic implements IGameLogic {
                 continue;
 
             // Get min value
-            int min = utils[depth][x] = minValue(
+            int min = minValue(
                     maxBoard | action,
                     minBoard,
                     commonBoard | action,
@@ -302,6 +299,9 @@ public class GameLogic implements IGameLogic {
             // Check if min is higher
             if (min > v) {
                 v = min;
+
+                if (depth == 0)
+                    maxX = x;
 
                 // Beta cut
                 if (v >= beta)
@@ -322,16 +322,13 @@ public class GameLogic implements IGameLogic {
 
         // Set v to lowest possible value
         int v = Integer.MAX_VALUE;
-        // Reset all utils for the current depth
-        for (int i = 0; i < width; i++)
-            utils[depth][i] = Integer.MAX_VALUE;
 
         // Get the possible actions for the state
         long[] actions = actions(commonBoard);
         // Get a prioritized list of moves to explore
         int[] actionPriority = actionPriority(minBoard, maxBoard, commonBoard, actions);
 
-        for (int i = 0; i < width; i++) {
+        for (int i = 0; i < actionPriority.length; i++) {
             int x = actionPriority[i];
             long action = actions[x];
 
@@ -340,7 +337,7 @@ public class GameLogic implements IGameLogic {
                 continue;
 
             // Get min value
-            int max = utils[depth][x] = maxValue(
+            int max = maxValue(
                     maxBoard,
                     minBoard | action,
                     commonBoard | action,
@@ -369,6 +366,7 @@ public class GameLogic implements IGameLogic {
     private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
         int[] actionPriority = new int[width];
         int[] heuristics = new int[width];
+        int block = -1;
 
         for (int x = 0; x < width; x++) {
             long action = actions[x];
@@ -378,21 +376,30 @@ public class GameLogic implements IGameLogic {
                 continue;
 
             heuristics[x] = h(thisBoard, thatBoard, action, x);
+
+            // Return immediately on a win
+            if (hasFourConnected(thisBoard | action))
+                return new int[]{x};
+
+            // Save a block to allow returning wins first
+            if (hasFourConnected(thatBoard | action))
+                block = x;
         }
 
-        // Selection sort - kind-of
+        // If any blocks found return
+        if (block >= 0)
+            return new int[]{block};
+
+        // Selection sort-of
         for (int i = 0; i < width; i++) {
             int maxI = 0;
-            int max = -1;
-            for (int x = 0; x < width; x++) {
-                if (heuristics[x] > max) {
-                    max = heuristics[x];
-                    maxI = x;
-                }
-            }
+            int max = Integer.MIN_VALUE;
 
-            heuristics[maxI] = Integer.MIN_VALUE;
-            actionPriority[i] = maxI;
+            for (int x = 0; x < width; x++)
+                if (heuristics[x] > max)
+                    max = heuristics[maxI = x];
+
+            heuristics[actionPriority[i] = maxI] = Integer.MIN_VALUE;
         }
 
         return actionPriority;
@@ -427,23 +434,20 @@ public class GameLogic implements IGameLogic {
 
     private int h(long thisBoard, long thatBoard, long action, int column) {
         long thisNextBoard = thisBoard | action;
-        long thatNextBoard = thatBoard | action;
 
         return
-                // Check for four connected
-                (hQuad(thisNextBoard) << 10) +
-                        // Check for blocking four connected
-                        (hQuad(thatNextBoard) << 8) +
-                        // Check for free-ended trebles
-                        (hTreblesFreeEnded(thisNextBoard, thatBoard) << 6) +
-                        // Check for trebles
-                        (hTrebles(thisNextBoard) << 4) +
-                        // Check for free-ended pairs
-                        (hPairsFreeEnded(thisNextBoard, thatBoard) << 2) +
-                        // Check for pairs
-                        (hPairs(thisNextBoard) << 0) +
-                        // Check column
-                        hColumn(column);
+            // Check for free-ended trebles
+            (hTreblesFreeEnded(thisNextBoard, thatBoard) << 16) +
+            // Check for double-free ended pairs
+            (hPairsDoubleFreeEnded(thisNextBoard, thatBoard) << 12) +
+            // Check for free-ended pairs
+            (hPairsFreeEnded(thisNextBoard, thatBoard) << 8) +
+            // Check for trebles
+            (hTrebles(thisNextBoard) << 4) +
+            // Check for pairs
+            (hPairs(thisNextBoard) << 0) +
+            // Check column
+            hColumn(column);
     }
 
     private int hColumn(int column) {
@@ -478,6 +482,29 @@ public class GameLogic implements IGameLogic {
                Long.bitCount(free & a >> height) +
                Long.bitCount(free & b >> height1) +
                Long.bitCount(free & c >> height2);
+    }
+
+    private int hPairsDoubleFreeEnded(long thisBoard, long thatBoard) {
+        long a = thisBoard & thisBoard >> height;
+        long b = thisBoard & thisBoard >> height1;
+        long c = thisBoard & thisBoard >> height2;
+        long d = thisBoard & thisBoard >> 1;
+
+        // Find all possibly free spots - not top/opponent's coins
+        long free = all1 ^ (thisBoard | thatBoard | top);
+
+        long a2 = free & free >> height;
+        long b2 = free & free >> height1;
+        long c2 = free & free >> height2;
+        long d2 = free & free >> 1;
+
+        return Long.bitCount(a & a2 >> 2 * height) +
+               Long.bitCount(b & b2 >> 2 * height1) +
+               Long.bitCount(c & c2 >> 2 * height2) +
+               Long.bitCount(d & d2 >> 2 * 1) +
+               Long.bitCount(a2 & a >> height) +
+               Long.bitCount(b2 & b >> height1) +
+               Long.bitCount(c2 & c >> height2);
     }
 
     private int hTrebles(long bitboard) {
