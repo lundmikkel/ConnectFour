@@ -26,8 +26,8 @@ public class GameLogic implements IGameLogic {
     private static final int PLAYER2 = 2;
 
     // Points
-    private static final int WIN  = +1;
-    private static final int LOSS = -1;
+    private static final int WIN  = +1 << 20;
+    private static final int LOSS = -1 << 20;
     private static final int TIE  =  0;
 
     // The board
@@ -37,7 +37,7 @@ public class GameLogic implements IGameLogic {
     private int maxX;
 
     // caches
-    private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>();
+    private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
     private HashMap<Long, Integer> evalCache = new HashMap<Long, Integer>();
     private HashMap<Key, Integer> evalCache2 = new HashMap<Key, Integer>();
 
@@ -164,6 +164,8 @@ public class GameLogic implements IGameLogic {
             StdOut.println("Found new best x " + bestX + " with cutoff " + cutoff + " at time " + sw.elapsedTime());
             cutoff++;
         } while(cutoff <= maxCutoff && stop > System.nanoTime());
+
+        StdOut.println("Cache size: " + actionCache.size());
 
         return bestX;
     }
@@ -437,26 +439,27 @@ public class GameLogic implements IGameLogic {
         int value;
 
         // TODO: Test
-        /*long hash = hashBoard(thisBoard, thatBoard);
-
-        if (evalCache.containsKey(hash)) {
-            value = evalCache.get(hash);
-
-            // TODO: Remove
-            if (evalCache2.get(new Key(thisBoard, thatBoard)) != value)
-                throw new RuntimeException("Cache didn't work!");
-
-            //StdOut.println("Cache hit on board " + thisBoard + " and " + thatBoard);
-
-            return value;
-        }
-
-        // TODO: Remove
-        if (evalCache2.containsKey(new Key(thisBoard, thatBoard)))
-            throw new RuntimeException("Cache didn't work!");*/
+        //long hash = hashBoard(thisBoard, thatBoard);
+//
+        //if (evalCache.containsKey(hash)) {
+        //    value = evalCache.get(hash);
+//
+        //    // TODO: Remove
+        //    if (evalCache2.get(new Key(thisBoard, thatBoard)) != value)
+        //        throw new RuntimeException("Cache didn't work!");
+//
+        //    //StdOut.println("Cache hit on board " + thisBoard + " and " + thatBoard);
+//
+        //    return value;
+        //}
+//
+        //// TODO: Remove
+        //if (evalCache2.containsKey(new Key(thisBoard, thatBoard)))
+        //    throw new RuntimeException("Cache didn't work!");
 
 
         // TODO: heuristics
+
         value =
                 // Check for free-ended trebles
                 (hTreblesFreeEnded(thisBoard, thatBoard) << 16) +
@@ -509,6 +512,8 @@ public class GameLogic implements IGameLogic {
         return
             // Check for free-ended trebles
             (hTreblesFreeEnded(thisNextBoard, thatBoard) << 16) +
+            // Check for trebles with holes
+            (hTreblesWithHoles(thisNextBoard, thatBoard) << 14) +
             // Check for double-free ended pairs
             (hPairsDoubleFreeEnded(thisNextBoard, thatBoard) << 12) +
             // Check for free-ended pairs
@@ -611,6 +616,36 @@ public class GameLogic implements IGameLogic {
                Long.bitCount(free & a >> height) +
                Long.bitCount(free & b >> height1) +
                Long.bitCount(free & c >> height2);
+    }
+
+    /**
+     * Searches for XX_X
+     */
+    private int hTreblesWithHoles(long bitboard1, long bitboard2) {
+        // XX
+        long a = bitboard1 & bitboard1 >> height;
+        long b = bitboard1 & bitboard1 >> height1;
+        long c = bitboard1 & bitboard1 >> height2;
+
+        // Find all possibly free spots - not top/opponent's coins
+        long free = all1 ^ (bitboard2 | top);
+
+        // _X
+        long fa = free & bitboard1 >> height;
+        long fb = free & bitboard1 >> height1;
+        long fc = free & bitboard1 >> height2;
+
+        // X_
+        long af = bitboard1 & free >> height;
+        long bf = bitboard1 & free >> height1;
+        long cf = bitboard1 & free >> height2;
+
+        return Long.bitCount(a & fa >> 2 * height) +
+               Long.bitCount(b & fb >> 2 * height1) +
+               Long.bitCount(c & fc >> 2 * height2) +
+               Long.bitCount(af & a >> 2 * height) +
+               Long.bitCount(bf & b >> 2 * height1) +
+               Long.bitCount(cf & c >> 2 * height2);
     }
 
     private int hQuad(long bitboard) {
