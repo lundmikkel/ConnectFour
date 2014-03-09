@@ -12,7 +12,7 @@ import java.awt.event.*;
 public class FourConnectGUI extends JComponent implements MouseListener {
     static final long serialVersionUID = 1234567890;
 
-    private boolean debug = true;
+    private boolean debug = false;
     private Stopwatch sw;
     private int counter = -1;
 
@@ -205,7 +205,8 @@ public class FourConnectGUI extends JComponent implements MouseListener {
                     }
                 }
             }
-            mouseClicked(e);
+            if (debug)
+                mouseClicked(e);
         }
         repaint();
 
