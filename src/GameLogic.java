@@ -1,3 +1,5 @@
+import java.util.HashMap;
+
 public class GameLogic implements IGameLogic {
     // region Fields
 
@@ -32,6 +34,9 @@ public class GameLogic implements IGameLogic {
 
     private short[] frequency;
     private int maxX;
+
+    // caches
+    private HashMap<Long[], Integer> evalCache = new HashMap<Long[], Integer>();
 
     /// endregion
 
@@ -140,7 +145,7 @@ public class GameLogic implements IGameLogic {
 
     public int decideNextMove() {
         // TODO: Apply iterative deepening
-        int cutoff = width * height;
+        int cutoff = 2*width;
 
         long maxBoard = currentState[MAX];
         long minBoard = currentState[MIN];
@@ -149,38 +154,6 @@ public class GameLogic implements IGameLogic {
         maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
 
         return maxX;
-
-        //StdOut.println(); for (int i = 0; i < width; i++) StdOut.println(i + ": " + utils[0][i]);
-
-        //for (int x = 0; x < width; x++)
-        //    if (utils[0][x] == v)
-        //        return x;
-//
-        //throw new RuntimeException();
-
-        // TODO
-        //int maxX = 0;
-        //int maxFrequency = 0;
-        //int[] utilities = utils[0];
-        //long[] actions = actions(currentState);
-
-        //StdOut.println();
-        //for (int i = 0; i < width; i++) {
-        //    StdOut.println(i + ": " + utilities[i]);
-        //}
-
-        //for (int x = 0; x < width; x++)
-        //    if (utilities[x] == v) {
-        //        long action = actions[x];
-        //        int bit = (int) (Math.log(action) / Math.log(2.0));
-
-        //        if (frequency[bit] > maxFrequency) {
-        //            maxFrequency = frequency[bit];
-        //            maxX = x;
-        //        }
-        //    }
-
-        //return maxX;
     }
 
 
@@ -268,6 +241,10 @@ public class GameLogic implements IGameLogic {
         if (terminalTest(maxBoard, minBoard, commonBoard))
             return utility(maxBoard, minBoard, commonBoard);
 
+        // if we have reached cutoff depth, evaluate board and return
+        if (depth >= cutoff)
+            return eval(maxBoard, minBoard, commonBoard);
+
         // Set v to lowest possible value
         int v = Integer.MIN_VALUE;
 
@@ -319,6 +296,10 @@ public class GameLogic implements IGameLogic {
         // Return if we are in a terminal state
         if (terminalTest(maxBoard, minBoard, commonBoard))
             return utility(maxBoard, minBoard, commonBoard);
+
+        // if we have reached cutoff depth, evaluate board and return
+        if (depth >= cutoff)
+            return -eval(minBoard, maxBoard, commonBoard);
 
         // Set v to lowest possible value
         int v = Integer.MAX_VALUE;
@@ -426,6 +407,30 @@ public class GameLogic implements IGameLogic {
         if (hasFourConnected(minBoard)) return LOSS;
         if (isTie(commonBoard)) return TIE;
         throw new RuntimeException("Utility function was called for a non-terminal state");
+    }
+
+    private int eval(long thisBoard, long thatBoard, long commonBoard) {
+        //return TIE;
+
+        // TODO: check eval cache
+
+        // TODO: heuristics
+        int h =
+                // Check for free-ended trebles
+                (hTreblesFreeEnded(thisBoard, thatBoard) << 16) +
+                // Check for double-free ended pairs
+                (hPairsDoubleFreeEnded(thisBoard, thatBoard) << 12) +
+                // Check for free-ended pairs
+                (hPairsFreeEnded(thisBoard, thatBoard) << 8) +
+                // Check for trebles
+                (hTrebles(thisBoard) << 4) +
+                // Check for pairs
+                (hPairs(thisBoard) << 0);
+
+        // TODO: save value to eval cache
+
+        // TODO: return
+        return h;
     }
 
     // endregion
