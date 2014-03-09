@@ -35,21 +35,15 @@ public class JobreMarm implements IGameLogic {
     }
     
     public int otherPlayer(int playerID) {
-        return playerID == 1 ? 2 : 1;
+        return 3 - playerID;
     }
     
 
     public int decideNextMove() {
         int cutoff = (int)(CUTOFF*.2 + (CUTOFF*.8*(turnsTaken/(1.*x*y))));
-        //System.out.println("Turns: "+turnsTaken+" - Cutoff: "+cutoff);
         return alphaBetaCutOff(cutoff);
     }
-    
-    /**
-     * Returns 
-     * @param board
-     * @return 
-     */
+
     private int alphaBetaCutOff(int cutoff) {
         int returnAction = -1;
         int max = Integer.MIN_VALUE;
