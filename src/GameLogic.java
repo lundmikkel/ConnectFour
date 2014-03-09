@@ -26,8 +26,8 @@ public class GameLogic implements IGameLogic {
     private static final int PLAYER2 = 2;
 
     // Points
-    private static final int WIN  = +1 << 20;
-    private static final int LOSS = -1 << 20;
+    private static final int WIN  = +1 << 24;
+    private static final int LOSS = -1 << 24;
     private static final int TIE  =  0;
 
     // The board
@@ -77,6 +77,29 @@ public class GameLogic implements IGameLogic {
 
         MAX = player;
         MIN = 3 - player;
+
+
+        //long bitboard =
+        //        1L <<  0 |
+        //        1L <<  7 |
+        //        1L << 21 |
+        //        1L << 22 |
+        //        1L << 23 |
+        //        1L << 30 |
+        //        1L << 38 |
+        //        0;
+//
+        //long free = all1 ^ (bitboard | top);
+//
+        //long threats = threats(bitboard, free);
+//
+        //StdOut.println("Bitboard:");
+        //StdOut.print(toString(bitboard));
+        //StdOut.println("Free:");
+        //StdOut.print(toString(free));
+        //StdOut.println("Threats:");
+        //StdOut.print(toString(threats));
+
 
         //
         //long bitboard1 = 1L << 7;
@@ -147,9 +170,13 @@ public class GameLogic implements IGameLogic {
     }
 
     public int decideNextMove() {
+        // Force first move
+        if (currentState[COMMON] == 0)
+            return width / 2;
+
         // TODO: Apply iterative deepening
         int cutoff = 10;
-
+        actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
         int bestX;
         long stop = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
         Stopwatch sw = new Stopwatch();
@@ -162,7 +189,7 @@ public class GameLogic implements IGameLogic {
             maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
             bestX = maxX;
             StdOut.println("Found new best x " + bestX + " with cutoff " + cutoff + " at time " + sw.elapsedTime());
-            cutoff++;
+            cutoff+=2;
         } while(cutoff <= maxCutoff && stop > System.nanoTime());
 
         StdOut.println("Cache size: " + actionCache.size());
@@ -257,7 +284,7 @@ public class GameLogic implements IGameLogic {
 
         // if we have reached cutoff depth, evaluate board and return
         if (depth >= cutoff)
-            return eval(maxBoard, minBoard, commonBoard);
+            return eval(maxBoard, minBoard, commonBoard, depth);
 
         // Set v to lowest possible value
         int v = Integer.MIN_VALUE;
@@ -287,6 +314,10 @@ public class GameLogic implements IGameLogic {
                     cutoff
             );
 
+            if (depth == 0) {
+                StdOut.println(x + ": " + min);
+            }
+
             // Check if min is higher
             if (min > v) {
                 v = min;
@@ -313,7 +344,7 @@ public class GameLogic implements IGameLogic {
 
         // if we have reached cutoff depth, evaluate board and return
         if (depth >= cutoff)
-            return -eval(minBoard, maxBoard, commonBoard);
+            return -eval(minBoard, maxBoard, commonBoard, depth);
 
         // Set v to lowest possible value
         int v = Integer.MAX_VALUE;
@@ -435,7 +466,7 @@ public class GameLogic implements IGameLogic {
         throw new RuntimeException("Utility function was called for a non-terminal state");
     }
 
-    private int eval(long thisBoard, long thatBoard, long commonBoard) {
+    private int eval(long thisBoard, long thatBoard, long commonBoard, int depth) {
         int value;
 
         // TODO: Test
@@ -460,9 +491,21 @@ public class GameLogic implements IGameLogic {
 
         // TODO: heuristics
 
-        value =
+        long free = all1 ^ (commonBoard | top);
+        long thisThreats = threats(thisBoard, free);
+        long thatThreats = threats(thatBoard, free);
+        long actions = commonBoard + bottom;
+        value = Long.bitCount(thisThreats) - ((thisThreats & actions) != 0 ? 1 : 0) -
+                Long.bitCount(thatThreats) + ((thatThreats & actions) != 0 ? 1 : 0);
+
+        double factor = 1 + 1./depth;
+        value = (int) (value * 100 * factor) << 18 ;
+
+        value +=
                 // Check for free-ended trebles
                 (hTreblesFreeEnded(thisBoard, thatBoard) << 16) +
+                // Check for trebles with holes
+                (hTreblesWithHoles(thisBoard, thatBoard) << 14) +
                 // Check for double-free ended pairs
                 (hPairsDoubleFreeEnded(thisBoard, thatBoard) << 12) +
                 // Check for free-ended pairs
@@ -470,7 +513,9 @@ public class GameLogic implements IGameLogic {
                 // Check for trebles
                 (hTrebles(thisBoard) << 4) +
                 // Check for pairs
-                (hPairs(thisBoard) << 0);
+                (hPairs(thisBoard) << 0);   
+
+        //value = hWinningLines(thisBoard, thatBoard) - hWinningLines(thatBoard, thisBoard);
 
         // Save the eval to the cache
         //evalCache.put(hash, value);
@@ -528,6 +573,11 @@ public class GameLogic implements IGameLogic {
 
     private int hColumn(int column) {
         return column > width / 2 ? width - column - 1 : column;
+    }
+
+    private int hWinningLines(long thisBoard, long thatBoard) {
+        long free = all1 ^ (thisBoard | thatBoard | top);
+        return hQuad(thisBoard | free);
     }
 
     private int hPairs(long bitboard) {
@@ -701,16 +751,48 @@ public class GameLogic implements IGameLogic {
     // endregion
 
 
-    // region To be done
+    private long threats(long bitboard, long free) {
+        long threats = 0L;
 
-    //private HashMap<long[], Integer> transpositionTable;
+        // Diagonal \
+        long aa = bitboard & bitboard >> height;
+        long fa = free     & bitboard >> height;
+        long af = free     & bitboard << height;
 
-    // transposition table
-    //int max = utils[depth][x] = transpositionTable.containsKey(newState)
-    //        ? transpositionTable.get(newState)
-    //        : maxValue(newState, alpha, beta, depth + 1, cutoff);
+        threats |= fa & aa >> 2 * height;
+        threats |= af & aa >> 1 * height;
+        threats |= fa & aa << 2 * height;
+        threats |= af & aa << 3 * height;
 
-    //transpositionTable.put(state, v);
 
-    // endregion
+        // Horizontal -
+        long bb = bitboard & bitboard >> height1;
+        long fb = free     & bitboard >> height1;
+        long bf = free     & bitboard << height1;
+
+        threats |= fb & bb >> 2 * height1;
+        threats |= bf & bb >> 1 * height1;
+        threats |= fb & bb << 2 * height1;
+        threats |= bf & bb << 3 * height1;
+
+
+        // Diagonal /
+        long cc = bitboard & bitboard >> height2;
+        long fc = free     & bitboard >> height2;
+        long cf = free     & bitboard << height2;
+
+        threats |= fc & cc >> 2 * height2;
+        threats |= cf & cc >> 1 * height2;
+        threats |= fc & cc << 2 * height2;
+        threats |= cf & cc << 3 * height2;
+
+        // Vertical |
+        long dd = bitboard & bitboard << 1;
+        long df = free     & bitboard << 1;
+
+        threats |= df & dd << 2;
+
+        // Return the threats board now containing 1's in all the places we have threats
+        return threats;
+    }
 }
