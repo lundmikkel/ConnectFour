@@ -36,7 +36,9 @@ public class GameLogic implements IGameLogic {
     private int maxX;
 
     // caches
-    private HashMap<Long[], Integer> evalCache = new HashMap<Long[], Integer>();
+    private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>();
+    private HashMap<Long, Integer> evalCache = new HashMap<Long, Integer>();
+    private HashMap<Key, Integer> evalCache2 = new HashMap<Key, Integer>();
 
     /// endregion
 
@@ -145,7 +147,7 @@ public class GameLogic implements IGameLogic {
 
     public int decideNextMove() {
         // TODO: Apply iterative deepening
-        int cutoff = 2*width;
+        int cutoff = 2*width + 3;
 
         long maxBoard = currentState[MAX];
         long minBoard = currentState[MIN];
@@ -345,6 +347,11 @@ public class GameLogic implements IGameLogic {
     }
 
     private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
+        long hash = hashBoard(thisBoard, thatBoard);
+        // Check cache
+        if (actionCache.containsKey(hash))
+            return actionCache.get(hash);
+
         int[] actionPriority = new int[width];
         int[] heuristics = new int[width];
         int block = -1;
@@ -359,8 +366,11 @@ public class GameLogic implements IGameLogic {
             heuristics[x] = h(thisBoard, thatBoard, action, x);
 
             // Return immediately on a win
-            if (hasFourConnected(thisBoard | action))
-                return new int[]{x};
+            if (hasFourConnected(thisBoard | action)) {
+                actionPriority = new int[]{x};
+                actionCache.put(hash, actionPriority);
+                return actionPriority;
+            }
 
             // Save a block to allow returning wins first
             if (hasFourConnected(thatBoard | action))
@@ -368,8 +378,11 @@ public class GameLogic implements IGameLogic {
         }
 
         // If any blocks found return
-        if (block >= 0)
-            return new int[]{block};
+        if (block >= 0) {
+            actionPriority = new int[]{block};
+            actionCache.put(hash, actionPriority);
+            return actionPriority;
+        }
 
         // Selection sort-of
         for (int i = 0; i < width; i++) {
@@ -383,6 +396,7 @@ public class GameLogic implements IGameLogic {
             heuristics[actionPriority[i] = maxI] = Integer.MIN_VALUE;
         }
 
+        actionCache.put(hash, actionPriority);
         return actionPriority;
     }
 
@@ -410,12 +424,30 @@ public class GameLogic implements IGameLogic {
     }
 
     private int eval(long thisBoard, long thatBoard, long commonBoard) {
-        //return TIE;
+        int value;
 
-        // TODO: check eval cache
+        // TODO: Test
+        /*long hash = hashBoard(thisBoard, thatBoard);
+
+        if (evalCache.containsKey(hash)) {
+            value = evalCache.get(hash);
+
+            // TODO: Remove
+            if (evalCache2.get(new Key(thisBoard, thatBoard)) != value)
+                throw new RuntimeException("Cache didn't work!");
+
+            //StdOut.println("Cache hit on board " + thisBoard + " and " + thatBoard);
+
+            return value;
+        }
+
+        // TODO: Remove
+        if (evalCache2.containsKey(new Key(thisBoard, thatBoard)))
+            throw new RuntimeException("Cache didn't work!");*/
+
 
         // TODO: heuristics
-        int h =
+        value =
                 // Check for free-ended trebles
                 (hTreblesFreeEnded(thisBoard, thatBoard) << 16) +
                 // Check for double-free ended pairs
@@ -427,10 +459,34 @@ public class GameLogic implements IGameLogic {
                 // Check for pairs
                 (hPairs(thisBoard) << 0);
 
-        // TODO: save value to eval cache
+        // Save the eval to the cache
+        //evalCache.put(hash, value);
+        //evalCache2.put(new Key(thisBoard, thatBoard), value);
 
-        // TODO: return
-        return h;
+        return value;
+    }
+
+    private long hashBoard(long thisBoard, long thatBoard) {
+        return ((thisBoard + thatBoard) * (thisBoard + thatBoard + 1) >> 1) + thatBoard;
+    }
+
+    private class Key {
+        long thisBoard, thatBoard;
+
+        public Key(long thisBoard, long thatBoard) {
+            this.thisBoard = thisBoard;
+            this.thatBoard = thatBoard;
+        }
+
+        @Override
+        public int hashCode() {
+            return (int) (thisBoard * 23 + thisBoard);
+        }
+
+        public boolean equals(Object obj) {
+            Key that = (Key) obj;
+            return this.thisBoard == that.thisBoard && this.thatBoard == that.thatBoard;
+        }
     }
 
     // endregion
