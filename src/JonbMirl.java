@@ -1,6 +1,6 @@
 import java.util.HashMap;
 
-public class GameLogic implements IGameLogic {
+public class JonbMirl implements IGameLogic {
     // region Fields
 
     private static boolean debug = false;
@@ -120,7 +120,7 @@ public class GameLogic implements IGameLogic {
         worker.start();
 
         try {
-            main.sleep(5 * 1000);
+            main.sleep((long) (9.5 * 1000));
 
             // Wait until we have an answer, even if it takes more than 10 s
             while (nextMove < 0)
@@ -233,7 +233,7 @@ public class GameLogic implements IGameLogic {
         // Get the possible actions for the state
         long[] actions = actions(commonBoard);
         // Get a prioritized list of moves to explore
-        int[] actionPriority = actionPriority(maxBoard, minBoard, commonBoard, actions);
+        int[] actionPriority = actionPriority(maxBoard, minBoard, actions);
         
         // Iterate all moves
         for (int i = 0; i < actionPriority.length && !stop; i++) {
@@ -291,7 +291,7 @@ public class GameLogic implements IGameLogic {
         // Get the possible actions for the state
         long[] actions = actions(commonBoard);
         // Get a prioritized list of moves to explore
-        int[] actionPriority = actionPriority(minBoard, maxBoard, commonBoard, actions);
+        int[] actionPriority = actionPriority(minBoard, maxBoard, actions);
 
         for (int i = 0; i < actionPriority.length && !stop; i++) {
             int x = actionPriority[i];
@@ -328,7 +328,7 @@ public class GameLogic implements IGameLogic {
         return v;
     }
 
-    private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
+    private int[] actionPriority(long thisBoard, long thatBoard, long[] actions) {
         long hash = hashBoard(thisBoard, thatBoard);
 
         // Check cache
@@ -411,64 +411,6 @@ public class GameLogic implements IGameLogic {
         int eval2 = eval2(thisBoard, thatBoard, commonBoard) * 5;
 
         return eval1 + eval2;
-
-            //eval3(thisBoard, thatBoard, commonBoard) * 1;
-
-        /*int value;
-
-        // TODO: Test
-        //long hash = hashBoard(thisBoard, thatBoard);
-//
-        //if (evalCache.containsKey(hash)) {
-        //    value = evalCache.get(hash);
-//
-        //    // TODO: Remove
-        //    if (evalCache2.get(new Key(thisBoard, thatBoard)) != value)
-        //        throw new RuntimeException("Cache didn't work!");
-//
-        //    //StdOut.println("Cache hit on board " + thisBoard + " and " + thatBoard);
-//
-        //    return value;
-        //}
-//
-        //// TODO: Remove
-        //if (evalCache2.containsKey(new Key(thisBoard, thatBoard)))
-        //    throw new RuntimeException("Cache didn't work!");
-
-
-        // TODO: heuristics
-
-        long free = all1 ^ (commonBoard | top);
-        long thisThreats = threats(thisBoard, free);
-        long thatThreats = threats(thatBoard, free);
-        long actions = commonBoard + bottom;
-        value = Long.bitCount(thisThreats) - ((thisThreats & actions) != 0 ? 1 : 0) -
-                Long.bitCount(thatThreats) + ((thatThreats & actions) != 0 ? 1 : 0);
-
-        double factor = 1 + 1./depth;
-        value = (int) (value * 100 * factor) << 18 ;
-
-        value +=
-                // Check for free-ended trebles
-                (hTreblesFreeEnded(thisBoard, thatBoard) << 16) +
-                // Check for trebles with holes
-                (hTreblesWithHoles(thisBoard, thatBoard) << 14) +
-                // Check for double-free ended pairs
-                (hPairsDoubleFreeEnded(thisBoard, thatBoard) << 12) +
-                // Check for free-ended pairs
-                (hPairsFreeEnded(thisBoard, thatBoard) << 8) +
-                // Check for trebles
-                (hTrebles(thisBoard) << 4) +
-                // Check for pairs
-                (hPairs(thisBoard) << 0);   
-
-        //value = hWinningLines(thisBoard, thatBoard) - hWinningLines(thatBoard, thisBoard);
-
-        // Save the eval to the cache
-        //evalCache.put(hash, value);
-        //evalCache2.put(new Key(thisBoard, thatBoard), value);
-
-        return value;*/
     }
 
     private int eval1(long thisBoard, long thatBoard, long commonBoard) {
@@ -506,34 +448,6 @@ public class GameLogic implements IGameLogic {
             // player 2 turn
             return (3*thisEven+thisOdd)-(2*thatOdd+thatEven);
         }
-    }
-
-    private int eval3(long thisBoard, long thatBoard, long commonBoard) {
-        long free = all1 ^ (commonBoard | top);
-        long thisThreats = threats(thisBoard, free);
-        long thatThreats = threats(thatBoard, free);
-
-        for (long mask : winnerMasks) {
-
-            //if (thisCount == 3) {
-            //    long threat = thisThreats & mask;
-            //    int column = (int) (Math.log(threat)/Math.log(2)) / height1;
-            //    long below = (free + threat) & col1 << (column * height1);
-//
-            //    value -= below << 1;
-            //}
-//
-//
-            //if (thatCount == 3) {
-            //    long threat = thatThreats & mask;
-            //    int column = (int) (Math.log(threat)/Math.log(2)) / height1;
-            //    long below = (free + threat) & col1 << (column * height1);
-//
-            //    value += below << 1;
-            //}
-        }
-
-        return 0;
     }
 
     private long hashBoard(long thisBoard, long thatBoard) {
