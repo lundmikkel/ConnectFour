@@ -3,6 +3,8 @@ import java.util.HashMap;
 public class GameLogic implements IGameLogic {
     // region Fields
 
+    private static boolean debug = false;
+
     // Width of the board
     private int width;
     // Height of the board
@@ -10,14 +12,17 @@ public class GameLogic implements IGameLogic {
     private int height1;
     private int height2;
 
+    // Helper masks
     private long all1;
     private long col1;
     private long bottom;
     private long top;
+    private long[] winnerMasks;
 
+    // Maximal possible size of the board
     private static final int MAX_SIZE = 64;
 
-    // The current player's id
+    // Player ids - We are always MAX
     private int COMMON = 0;
     private int MAX;
     private int MIN;
@@ -32,7 +37,6 @@ public class GameLogic implements IGameLogic {
     // The board
     private long[] currentState = new long[3];
 
-    private long[] winnerMasks = new long[69];
 
     private short[] frequency;
     private int maxX;
@@ -77,70 +81,11 @@ public class GameLogic implements IGameLogic {
         currentState[PLAYER1] =
         currentState[PLAYER2] = 0L;
 
-        initWinnerMasks();
-        frequency = getFrequency();
-
         MAX = player;
         MIN = 3 - player;
 
-
-        //long bitboard =
-        //        1L <<  0 |
-        //        1L <<  7 |
-        //        1L << 21 |
-        //        1L << 22 |
-        //        1L << 23 |
-        //        1L << 30 |
-        //        1L << 38 |
-        //        0;
-//
-        //long free = all1 ^ (bitboard | top);
-//
-        //long threats = threats(bitboard, free);
-//
-        //StdOut.println("Bitboard:");
-        //StdOut.print(toString(bitboard));
-        //StdOut.println("Free:");
-        //StdOut.print(toString(free));
-        //StdOut.println("Threats:");
-        //StdOut.print(toString(threats));
-
-
-        //
-        //long bitboard1 = 1L << 7;
-        //long bitboard2 = 1L << 9 | 1L << 21;
-        //
-        //long bitboardA = bitboard1 | 1L << 8;
-        //long bitboardB = bitboard1 | 1L << 14;
-        //
-        //StdOut.println("BitboardA:\n" + toString(bitboardA, bitboard2));
-        //StdOut.println("BitboardB:\n" + toString(bitboardB, bitboard2));
-        //
-        //StdOut.println("BitboardA free ended pairs heuristic: " + hPairsFreeEnded(bitboardA, bitboard2));
-        //StdOut.println("BitboardB free ended pairs heuristic: " + hPairsFreeEnded(bitboardB, bitboard2));
-        //
-        //long bitboard = 0L;
-        //bitboard |= 1L << 14;
-        //bitboard |= 1L << 22;
-        //bitboard |= 1L << 28;
-        //
-        //long bitboard1 = bitboard, bitboard2 = bitboard, bitboard3 = bitboard;
-        //
-        //bitboard1 |= 1L << 21;
-        //bitboard2 |= 1L << 29;
-        //bitboard3 |= 1L << 35;
-        //
-        //StdOut.println("Bitboard1:\n" + toString(bitboard1));
-        //StdOut.println("Bitboard2:\n" + toString(bitboard2));
-        //StdOut.println("Bitboard3:\n" + toString(bitboard3));
-        //
-        //StdOut.println("Bitboard1 pairs heuristic: " + hPairs(bitboard1));
-        //StdOut.println("Bitboard2 pairs heuristic: " + hPairs(bitboard2));
-        //StdOut.println("Bitboard3 pairs heuristic: " + hPairs(bitboard3));
-        //StdOut.println("Bitboard1 trebles heuristic: " + hTrebles(bitboard1));
-        //StdOut.println("Bitboard2 trebles heuristic: " + hTrebles(bitboard2));
-        //StdOut.println("Bitboard3 trebles heuristic: " + hTrebles(bitboard3));
-        //
+        winnerMasks = initWinnerMasks();
+        frequency = getFrequency();
     }
 
     public Winner gameFinished() {
@@ -152,19 +97,7 @@ public class GameLogic implements IGameLogic {
             return Winner.PLAYER2;
 
         // Chech if we have a tie due to a filled board
-        return isTie(currentState) ? Winner.TIE : Winner.NOT_FINISHED;
-    }
-
-    private boolean isTie(long[] state) {
-        return (state[COMMON] | top) == all1;
-    }
-
-    private boolean isTie(long commonBoard) {
-        return (commonBoard | top) == all1;
-    }
-
-    private boolean isValid(long action) {
-        return (action & top) == 0;
+        return isTie(currentState[COMMON]) ? Winner.TIE : Winner.NOT_FINISHED;
     }
 
     public void insertCoin(int column, int player) {
@@ -205,6 +138,21 @@ public class GameLogic implements IGameLogic {
         StdOut.println("Picked " + nextMove);
         return nextMove;
     }
+
+    /**
+     * Check if we have a tie, i.e. all positions are used.
+     */
+    private boolean isTie(long commonBoard) {
+        return (commonBoard | top) == all1;
+    }
+
+    /**
+     * Check if a move is valid, or the column is already full.
+     */
+    private boolean isValid(long action) {
+        return (action & top) == 0;
+    }
+
 
     private class Worker implements Runnable {
 
@@ -266,56 +214,6 @@ public class GameLogic implements IGameLogic {
                 d & d >> 2 * 1) != 0;   // check vertical   |
     }
 
-    // region Visualization
-
-    private long fromString(String string) {
-        long bitboard = 0L;
-        String[] rows = string.split("\n");
-        for (int y = 0; y < height; y++) {
-            String[] cells = rows[y].split(" ");
-            for (int x = 0; x < width; x++) {
-                if (cells[x].equalsIgnoreCase("x")) {
-                    bitboard |= 1L << (height - 1 - y) + height1 * x;
-                }
-            }
-        }
-        return bitboard;
-    }
-
-    private String toString(long bitboard) {
-        String s = "";
-
-        for (int y = 0; y < height; y++) {
-            long row = bitboard >> height - 1 - y;
-            for (int x = 0; x < width; x++) {
-                s += (row & 1L) != 0 ? "X " : ". ";
-                row >>= height1;
-            }
-            s += '\n';
-        }
-
-        return s;
-    }
-
-    private String toString(long bitboard1, long bitboard2) {
-        String s = "";
-
-        for (int y = 0; y < height; y++) {
-            long row1 = bitboard1 >> height - 1 - y;
-            long row2 = bitboard2 >> height - 1 - y;
-            for (int x = 0; x < width; x++) {
-                s += " " + ((row1 & 1L) != 0 ? "X" : ((row2 & 1L) != 0 ? "O" : "."));
-                row1 >>= height1;
-                row2 >>= height1;
-            }
-            s += '\n';
-        }
-
-        return s;
-    }
-
-    // endregion
-
     // endregion
 
     // region MiniMax
@@ -357,9 +255,7 @@ public class GameLogic implements IGameLogic {
                     cutoff
             );
 
-            if (depth == 0) {
-                StdOut.println(x + ": " + min);
-            }
+            if (debug && depth == 0) StdOut.println(x + ": " + min);
 
             // Check if min is higher
             if (min > v) {
@@ -434,6 +330,7 @@ public class GameLogic implements IGameLogic {
 
     private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
         long hash = hashBoard(thisBoard, thatBoard);
+        
         // Check cache
         if (actionCache.containsKey(hash))
             return actionCache.get(hash);
@@ -776,47 +673,55 @@ public class GameLogic implements IGameLogic {
                Long.bitCount(d & d >> 2 * 1);        // check vertical   |
     }
 
-    public void initWinnerMasks() {
+    /**
+     * Generate masks representing all possible ways to get four connected
+     */
+    public long[] initWinnerMasks() {
         int i = 0;
+        int size = height * (width - 3) + (height - 3) * width + 2 * (height - 3) * (width - 3);
+        long[] winnerMasks = new long[size];
 
         // Horizontal
-        long tmpMask = 0L;
+        long mask = 0L;
         for (int j = 0; j < 4; j++)
-            tmpMask |= 1L << j * height1;
+            mask |= 1L << j * height1;
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width - 3; x++)
-                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+                winnerMasks[i++] = (mask << (x * height1)) << y;
 
 
         // Vertical
-        tmpMask = 0L;
+        mask = 0L;
         for (int j = 0; j < 4; j++)
-            tmpMask |= 1L << j * 1;
+            mask |= 1L << j * 1;
 
         for (int y = 0; y < height - 3; y++)
             for (int x = 0; x < width; x++)
-                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+                winnerMasks[i++] = (mask << (x * height1)) << y;
 
 
         // Diagonal /
-        tmpMask = 0L;
+        mask = 0L;
         for (int j = 0; j < 4; j++)
-            tmpMask |= 1L << j * height2;
+            mask |= 1L << j * height2;
 
         for (int y = 0; y < height - 3; y++)
             for (int x = 0; x < width - 3; x++)
-                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+                winnerMasks[i++] = (mask << (x * height1)) << y;
 
 
         // Diagonal \
-        tmpMask = 0L;
+        mask = 0L;
         for (int j = 0; j < 4; j++)
-            tmpMask |= 1L << j * height;
+            mask |= 1L << j * height;
 
         for (int y = 3; y < height; y++)
             for (int x = 0; x < width - 3; x++)
-                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+                winnerMasks[i++] = (mask << (x * height1)) << y;
+
+
+        return winnerMasks;
     }
 
     public short[] getFrequency() {
@@ -904,4 +809,54 @@ public class GameLogic implements IGameLogic {
         // Return the threats board now containing 1's in all the places we have threats
         return threats;
     }
+
+    // region Visualization
+
+    private long fromString(String string) {
+        long bitboard = 0L;
+        String[] rows = string.split("\n");
+        for (int y = 0; y < height; y++) {
+            String[] cells = rows[y].split(" ");
+            for (int x = 0; x < width; x++) {
+                if (cells[x].equalsIgnoreCase("x")) {
+                    bitboard |= 1L << (height - 1 - y) + height1 * x;
+                }
+            }
+        }
+        return bitboard;
+    }
+
+    private String toString(long bitboard) {
+        String s = "";
+
+        for (int y = 0; y < height; y++) {
+            long row = bitboard >> height - 1 - y;
+            for (int x = 0; x < width; x++) {
+                s += (row & 1L) != 0 ? "X " : ". ";
+                row >>= height1;
+            }
+            s += '\n';
+        }
+
+        return s;
+    }
+
+    private String toString(long bitboard1, long bitboard2) {
+        String s = "";
+
+        for (int y = 0; y < height; y++) {
+            long row1 = bitboard1 >> height - 1 - y;
+            long row2 = bitboard2 >> height - 1 - y;
+            for (int x = 0; x < width; x++) {
+                s += " " + ((row1 & 1L) != 0 ? "X" : ((row2 & 1L) != 0 ? "O" : "."));
+                row1 >>= height1;
+                row2 >>= height1;
+            }
+            s += '\n';
+        }
+
+        return s;
+    }
+
+    // endregion
 }
