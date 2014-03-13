@@ -17,6 +17,7 @@ public class GameLogic implements IGameLogic {
     private long col1;
     private long bottom;
     private long top;
+    private long odd, even;
     private long[] winnerMasks;
 
     // Maximal possible size of the board
@@ -46,7 +47,6 @@ public class GameLogic implements IGameLogic {
     // caches
     private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
     private HashMap<Long, Integer> evalCache = new HashMap<Long, Integer>();
-    private HashMap<Key, Integer> evalCache2 = new HashMap<Key, Integer>();
     private boolean stop;
 
     /// endregion
@@ -77,6 +77,10 @@ public class GameLogic implements IGameLogic {
         bottom = all1 / col1;
         top = bottom << height;
 
+        odd = bottom;
+        for (int i = 0; i < height; i+=2) odd = (odd << 2) | bottom;
+        even = all1 ^ odd;
+
         currentState[COMMON] =
         currentState[PLAYER1] =
         currentState[PLAYER2] = 0L;
@@ -89,7 +93,6 @@ public class GameLogic implements IGameLogic {
     }
 
     public Winner gameFinished() {
-        // Check if four got connected in the last move
         if (hasFourConnected(currentState[PLAYER1]))
             return Winner.PLAYER1;
 
@@ -113,12 +116,11 @@ public class GameLogic implements IGameLogic {
         nextMove = -1;
         stop = false;
         Thread main = Thread.currentThread();
-        StdOut.println("Creating new thread!");
         Thread worker = new Thread(new Worker());
         worker.start();
 
         try {
-            main.sleep(9 * 1000);
+            main.sleep(5 * 1000);
 
             // Wait until we have an answer, even if it takes more than 10 s
             while (nextMove < 0)
@@ -158,8 +160,6 @@ public class GameLogic implements IGameLogic {
 
         @Override
         public void run() {
-            StdOut.println("New run started!");
-
             // Board values
             long maxBoard = currentState[MAX];
             long minBoard = currentState[MIN];
@@ -182,7 +182,7 @@ public class GameLogic implements IGameLogic {
                 if (currentState[MAX] == 0)
                     lastCutoff = cutoff - 2;
 
-                StdOut.println("Found new best move (" + nextMove + ") with cutoff " + cutoff);
+                if (debug) StdOut.println("Found new best move (" + nextMove + ") with cutoff " + cutoff);
                 cutoff += 2;
             } while(cutoff <= maxCutoff);
         }
@@ -330,7 +330,7 @@ public class GameLogic implements IGameLogic {
 
     private int[] actionPriority(long thisBoard, long thatBoard, long commonBoard, long[] actions) {
         long hash = hashBoard(thisBoard, thatBoard);
-        
+
         // Check cache
         if (actionCache.containsKey(hash))
             return actionCache.get(hash);
@@ -407,8 +407,12 @@ public class GameLogic implements IGameLogic {
     }
 
     private int eval(long thisBoard, long thatBoard, long commonBoard, int depth) {
+        int eval1 = eval1(thisBoard, thatBoard, commonBoard) * 2;
+        int eval2 = eval2(thisBoard, thatBoard, commonBoard) * 5;
 
-        return eval2(thisBoard, thatBoard, commonBoard, depth);
+        return eval1 + eval2;
+
+            //eval3(thisBoard, thatBoard, commonBoard) * 1;
 
         /*int value;
 
@@ -467,47 +471,73 @@ public class GameLogic implements IGameLogic {
         return value;*/
     }
 
-    private int eval2(long thisBoard, long thatBoard, long commonBoard, int depth) {
+    private int eval1(long thisBoard, long thatBoard, long commonBoard) {
         int value = 0;
 
         for (long mask : winnerMasks) {
             int thisCount = Long.bitCount(thisBoard & mask);
             int thatCount = Long.bitCount(thatBoard & mask);
 
-            // If both have coins
-            if (thisCount != 0 && thatCount != 0)
-                continue;
-
-            if (thisCount > 0)
+            if (thisCount > 0 && thatCount == 0) {
                 value += 1 << thisCount * 2;
-            else
+            }
+            else if (thatCount > 0 && thisCount == 0) {
                 value -= 1 << thatCount * 2;
+            }
         }
 
         return value;
     }
 
-    private long hashBoard(long thisBoard, long thatBoard) {
-        return ((thisBoard + thatBoard) * (thisBoard + thatBoard + 1) >> 1) + thatBoard;
+    private int eval2(long thisBoard, long thatBoard, long commonBoard) {
+        long free = all1 ^ (commonBoard | top);
+        long thisThreats = threats(thisBoard, free);
+        long thatThreats = threats(thatBoard, free);
+
+        int thisEven = Long.bitCount(thisThreats & even);
+        int thisOdd = Long.bitCount(thisThreats & odd);
+        int thatEven = Long.bitCount(thatThreats & even);
+        int thatOdd = Long.bitCount(thatThreats & odd);
+
+        if (Long.bitCount(commonBoard) % 2 == 0) {
+            // player 1 turn
+            return (3*thisOdd+thisEven)-(2*thatEven+thatOdd);
+        } else {
+            // player 2 turn
+            return (3*thisEven+thisOdd)-(2*thatOdd+thatEven);
+        }
     }
 
-    private class Key {
-        long thisBoard, thatBoard;
+    private int eval3(long thisBoard, long thatBoard, long commonBoard) {
+        long free = all1 ^ (commonBoard | top);
+        long thisThreats = threats(thisBoard, free);
+        long thatThreats = threats(thatBoard, free);
 
-        public Key(long thisBoard, long thatBoard) {
-            this.thisBoard = thisBoard;
-            this.thatBoard = thatBoard;
+        for (long mask : winnerMasks) {
+
+            //if (thisCount == 3) {
+            //    long threat = thisThreats & mask;
+            //    int column = (int) (Math.log(threat)/Math.log(2)) / height1;
+            //    long below = (free + threat) & col1 << (column * height1);
+//
+            //    value -= below << 1;
+            //}
+//
+//
+            //if (thatCount == 3) {
+            //    long threat = thatThreats & mask;
+            //    int column = (int) (Math.log(threat)/Math.log(2)) / height1;
+            //    long below = (free + threat) & col1 << (column * height1);
+//
+            //    value += below << 1;
+            //}
         }
 
-        @Override
-        public int hashCode() {
-            return (int) (thisBoard * 23 + thisBoard);
-        }
+        return 0;
+    }
 
-        public boolean equals(Object obj) {
-            Key that = (Key) obj;
-            return this.thisBoard == that.thisBoard && this.thatBoard == that.thatBoard;
-        }
+    private long hashBoard(long thisBoard, long thatBoard) {
+        return ((thisBoard + thatBoard) * (thisBoard + thatBoard + 1) >> 1) + thatBoard;
     }
 
     // endregion
@@ -536,11 +566,6 @@ public class GameLogic implements IGameLogic {
 
     private int hColumn(int column) {
         return column > width / 2 ? width - column - 1 : column;
-    }
-
-    private int hWinningLines(long thisBoard, long thatBoard) {
-        long free = all1 ^ (thisBoard | thatBoard | top);
-        return hQuad(thisBoard | free);
     }
 
     private int hPairs(long bitboard) {
