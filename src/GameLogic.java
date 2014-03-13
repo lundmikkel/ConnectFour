@@ -35,6 +35,7 @@ public class GameLogic implements IGameLogic {
 
     private short[] frequency;
     private int maxX;
+    private int nextMove;
 
     // caches
     private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
@@ -174,27 +175,49 @@ public class GameLogic implements IGameLogic {
         if (currentState[COMMON] == 0)
             return width / 2;
 
-        // TODO: Apply iterative deepening
-        int cutoff = 10;
         actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
-        int bestX;
-        long stop = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
+
         Stopwatch sw = new Stopwatch();
-        long maxBoard = currentState[MAX];
-        long minBoard = currentState[MIN];
-        long commonBoard = currentState[COMMON];
-        int maxCutoff = width * height - Long.bitCount(commonBoard);
+        Thread thread = new Thread(new Worker());
+        thread.start();
 
-        do {
-            maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
-            bestX = maxX;
-            StdOut.println("Found new best x " + bestX + " with cutoff " + cutoff + " at time " + sw.elapsedTime());
-            cutoff+=2;
-        } while(cutoff <= maxCutoff && stop > System.nanoTime());
+        try {
+            Thread.currentThread().sleep(9 * 1000);
+            thread.interrupt();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        StdOut.println("Cache size: " + actionCache.size());
+        StdOut.println("Picked " + nextMove + " after " + sw.elapsedTime() + " s");
+        return nextMove;
+    }
 
-        return bestX;
+    private class Worker implements Runnable {
+
+        @Override
+        public void run() {
+            // Board values
+            long maxBoard = currentState[MAX];
+            long minBoard = currentState[MIN];
+            long commonBoard = currentState[COMMON];
+
+            // Cutoff
+            int cutoff = 10;
+            int maxCutoff = width * height - Long.bitCount(commonBoard);
+
+            Thread currentThread = Thread.currentThread();
+
+            // Iterative deepening search
+            while(cutoff <= maxCutoff) {
+                if (currentThread.isInterrupted())
+                    break;
+
+                maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
+                nextMove = maxX;
+                StdOut.println("Found new best move (" + nextMove + ") with cutoff " + cutoff);
+                cutoff += 2;
+            }
+        }
     }
 
 
