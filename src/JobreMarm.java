@@ -41,6 +41,7 @@ public class JobreMarm implements IGameLogic {
 
     public int decideNextMove() {
         int cutoff = (int)(CUTOFF*.2 + (CUTOFF*.8*(turnsTaken/(1.*x*y))));
+        StdOut.println("Cutoff: " + cutoff);
         return alphaBetaCutOff(cutoff);
     }
 
