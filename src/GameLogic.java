@@ -177,18 +177,25 @@ public class GameLogic implements IGameLogic {
 
         actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
 
-        Stopwatch sw = new Stopwatch();
-        Thread thread = new Thread(new Worker());
-        thread.start();
+        nextMove = -1;
+        Thread main = Thread.currentThread();
+        Thread worker = new Thread(new Worker());
+        worker.start();
 
         try {
-            Thread.currentThread().sleep(9 * 1000);
-            thread.interrupt();
+            main.sleep(9 * 1000);
+
+            // Wait until we have an answer, even if it takes more than 10 s
+            while (nextMove < 0)
+                main.sleep(100);
+
+            // Stop
+            worker.interrupt();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        StdOut.println("Picked " + nextMove + " after " + sw.elapsedTime() + " s");
+        StdOut.println("Picked " + nextMove);
         return nextMove;
     }
 
