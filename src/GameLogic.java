@@ -36,6 +36,7 @@ public class GameLogic implements IGameLogic {
     private short[] frequency;
     private int maxX;
     private int nextMove;
+    private int lastCutoff = 10;
 
     // caches
     private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
@@ -171,10 +172,6 @@ public class GameLogic implements IGameLogic {
     }
 
     public int decideNextMove() {
-        // Force first move
-        if (currentState[COMMON] == 0)
-            return width / 2;
-
         actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
 
         nextMove = -1;
@@ -195,6 +192,10 @@ public class GameLogic implements IGameLogic {
             e.printStackTrace();
         }
 
+        // Force first move
+        if (currentState[COMMON] == 0)
+            return width / 2;
+
         StdOut.println("Picked " + nextMove);
         return nextMove;
     }
@@ -209,7 +210,7 @@ public class GameLogic implements IGameLogic {
             long commonBoard = currentState[COMMON];
 
             // Cutoff
-            int cutoff = 10;
+            int cutoff = lastCutoff;
             int maxCutoff = width * height - Long.bitCount(commonBoard);
 
             Thread currentThread = Thread.currentThread();
@@ -221,6 +222,10 @@ public class GameLogic implements IGameLogic {
 
                 maxValue(maxBoard, minBoard, commonBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, cutoff);
                 nextMove = maxX;
+
+                if (currentState[MAX] == 0)
+                    lastCutoff = cutoff - 2;
+
                 StdOut.println("Found new best move (" + nextMove + ") with cutoff " + cutoff);
                 cutoff += 2;
             }
