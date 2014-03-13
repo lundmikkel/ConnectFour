@@ -1,5 +1,4 @@
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
 
 public class GameLogic implements IGameLogic {
     // region Fields
@@ -33,6 +32,8 @@ public class GameLogic implements IGameLogic {
     // The board
     private long[] currentState = new long[3];
 
+    private long[] winnerMasks = new long[69];
+
     private short[] frequency;
     private int maxX;
     private int nextMove;
@@ -42,6 +43,7 @@ public class GameLogic implements IGameLogic {
     private HashMap<Long, int[]> actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
     private HashMap<Long, Integer> evalCache = new HashMap<Long, Integer>();
     private HashMap<Key, Integer> evalCache2 = new HashMap<Key, Integer>();
+    private boolean stop;
 
     /// endregion
 
@@ -75,6 +77,7 @@ public class GameLogic implements IGameLogic {
         currentState[PLAYER1] =
         currentState[PLAYER2] = 0L;
 
+        initWinnerMasks();
         frequency = getFrequency();
 
         MAX = player;
@@ -175,7 +178,9 @@ public class GameLogic implements IGameLogic {
         actionCache = new HashMap<Long, int[]>(4 * 1000 * 1000);
 
         nextMove = -1;
+        stop = false;
         Thread main = Thread.currentThread();
+        StdOut.println("Creating new thread!");
         Thread worker = new Thread(new Worker());
         worker.start();
 
@@ -188,6 +193,7 @@ public class GameLogic implements IGameLogic {
 
             // Stop
             worker.interrupt();
+            stop = true;
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -204,6 +210,8 @@ public class GameLogic implements IGameLogic {
 
         @Override
         public void run() {
+            StdOut.println("New run started!");
+
             // Board values
             long maxBoard = currentState[MAX];
             long minBoard = currentState[MIN];
@@ -216,7 +224,7 @@ public class GameLogic implements IGameLogic {
             Thread currentThread = Thread.currentThread();
 
             // Iterative deepening search
-            while(cutoff <= maxCutoff) {
+            do {
                 if (currentThread.isInterrupted())
                     break;
 
@@ -228,7 +236,7 @@ public class GameLogic implements IGameLogic {
 
                 StdOut.println("Found new best move (" + nextMove + ") with cutoff " + cutoff);
                 cutoff += 2;
-            }
+            } while(cutoff <= maxCutoff);
         }
     }
 
@@ -315,7 +323,7 @@ public class GameLogic implements IGameLogic {
     private int maxValue(long maxBoard, long minBoard, long commonBoard, int alpha, int beta, int depth, int cutoff) {
         // Check if we should end the search
         if (terminalTest(maxBoard, minBoard, commonBoard))
-            return utility(maxBoard, minBoard, commonBoard);
+            return utility(maxBoard, minBoard, commonBoard, depth);
 
         // if we have reached cutoff depth, evaluate board and return
         if (depth >= cutoff)
@@ -328,9 +336,9 @@ public class GameLogic implements IGameLogic {
         long[] actions = actions(commonBoard);
         // Get a prioritized list of moves to explore
         int[] actionPriority = actionPriority(maxBoard, minBoard, commonBoard, actions);
-
+        
         // Iterate all moves
-        for (int i = 0; i < actionPriority.length; i++) {
+        for (int i = 0; i < actionPriority.length && !stop; i++) {
             int x = actionPriority[i];
             long action = actions[x];
 
@@ -375,7 +383,7 @@ public class GameLogic implements IGameLogic {
     private int minValue(long maxBoard, long minBoard, long commonBoard, int alpha, int beta, int depth, int cutoff) {
         // Return if we are in a terminal state
         if (terminalTest(maxBoard, minBoard, commonBoard))
-            return utility(maxBoard, minBoard, commonBoard);
+            return utility(maxBoard, minBoard, commonBoard, depth);
 
         // if we have reached cutoff depth, evaluate board and return
         if (depth >= cutoff)
@@ -389,7 +397,7 @@ public class GameLogic implements IGameLogic {
         // Get a prioritized list of moves to explore
         int[] actionPriority = actionPriority(minBoard, maxBoard, commonBoard, actions);
 
-        for (int i = 0; i < actionPriority.length; i++) {
+        for (int i = 0; i < actionPriority.length && !stop; i++) {
             int x = actionPriority[i];
             long action = actions[x];
 
@@ -494,15 +502,18 @@ public class GameLogic implements IGameLogic {
                isTie(commonBoard);
     }
 
-    private int utility(long maxBoard, long minBoard, long commonBoard) {
-        if (hasFourConnected(maxBoard)) return WIN;
-        if (hasFourConnected(minBoard)) return LOSS;
+    private int utility(long maxBoard, long minBoard, long commonBoard, int depth) {
+        if (hasFourConnected(maxBoard)) return WIN + depth;
+        if (hasFourConnected(minBoard)) return LOSS + depth;
         if (isTie(commonBoard)) return TIE;
         throw new RuntimeException("Utility function was called for a non-terminal state");
     }
 
     private int eval(long thisBoard, long thatBoard, long commonBoard, int depth) {
-        int value;
+
+        return eval2(thisBoard, thatBoard, commonBoard, depth);
+
+        /*int value;
 
         // TODO: Test
         //long hash = hashBoard(thisBoard, thatBoard);
@@ -555,6 +566,26 @@ public class GameLogic implements IGameLogic {
         // Save the eval to the cache
         //evalCache.put(hash, value);
         //evalCache2.put(new Key(thisBoard, thatBoard), value);
+
+        return value;*/
+    }
+
+    private int eval2(long thisBoard, long thatBoard, long commonBoard, int depth) {
+        int value = 0;
+
+        for (long mask : winnerMasks) {
+            int thisCount = Long.bitCount(thisBoard & mask);
+            int thatCount = Long.bitCount(thatBoard & mask);
+
+            // If both have coins
+            if (thisCount != 0 && thatCount != 0)
+                continue;
+
+            if (thisCount > 0)
+                value += 1 << thisCount * 2;
+            else
+                value -= 1 << thatCount * 2;
+        }
 
         return value;
     }
@@ -743,6 +774,49 @@ public class GameLogic implements IGameLogic {
                Long.bitCount(b & b >> 2 * height1) + // check horizontal -
                Long.bitCount(c & c >> 2 * height2) + // check diagonal   /
                Long.bitCount(d & d >> 2 * 1);        // check vertical   |
+    }
+
+    public void initWinnerMasks() {
+        int i = 0;
+
+        // Horizontal
+        long tmpMask = 0L;
+        for (int j = 0; j < 4; j++)
+            tmpMask |= 1L << j * height1;
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width - 3; x++)
+                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+
+
+        // Vertical
+        tmpMask = 0L;
+        for (int j = 0; j < 4; j++)
+            tmpMask |= 1L << j * 1;
+
+        for (int y = 0; y < height - 3; y++)
+            for (int x = 0; x < width; x++)
+                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+
+
+        // Diagonal /
+        tmpMask = 0L;
+        for (int j = 0; j < 4; j++)
+            tmpMask |= 1L << j * height2;
+
+        for (int y = 0; y < height - 3; y++)
+            for (int x = 0; x < width - 3; x++)
+                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
+
+
+        // Diagonal \
+        tmpMask = 0L;
+        for (int j = 0; j < 4; j++)
+            tmpMask |= 1L << j * height;
+
+        for (int y = 3; y < height; y++)
+            for (int x = 0; x < width - 3; x++)
+                winnerMasks[i++] = (tmpMask << (x * height1)) << y;
     }
 
     public short[] getFrequency() {
